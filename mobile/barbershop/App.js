@@ -1,0 +1,5571 @@
+import React, { useState, useEffect, useCallback } from "react";
+
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  FlatList,
+  Image,
+  ImageBackground,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import * as ImagePicker from "expo-image-picker";
+
+import { NavigationContainer, useFocusEffect } from "@react-navigation/native";
+
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+
+// ======================================================
+// CONFIGURAÇÃO
+// ======================================================
+
+const API_URL = "http://10.0.2.2:3000";
+
+const Stack = createNativeStackNavigator();
+
+// ======================================================
+// CORES
+// ======================================================
+
+const COLORS = {
+  bg: "#111111",
+  card: "#1e1e1eff",
+  card2: "#242424",
+  border: "#303030",
+
+  yellow: "#F5C542",
+  yellowDark: "#D9AB27",
+
+  white: "#FFFFFF",
+  text: "#F5F5F5",
+  gray: "#8E8E8E",
+  gray2: "#666666",
+
+  blue: "#173B73",
+  blueCard: "#183A70",
+
+  green: "#35C982",
+  red: "#F05B5B",
+};
+
+// ======================================================
+// COMPONENTES VISUAIS
+// ======================================================
+
+function Logo({ style }) {
+  return (
+    <Image
+      source={require("./assets/logo.png")}
+      style={[styles.logoImage, style]}
+      resizeMode="contain"
+    />
+  );
+}
+
+function SectionTitle({ children }) {
+  return <Text style={styles.sectionTitle}>{children}</Text>;
+}
+
+function PrimaryButton({ title, onPress, loading = false }) {
+  return (
+    <TouchableOpacity
+      style={styles.primaryButton}
+      onPress={onPress}
+      disabled={loading}
+    >
+      {loading ? (
+        <ActivityIndicator color="#111111" />
+      ) : (
+        <Text style={styles.primaryButtonText}>{title}</Text>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+// ======================================================
+// 1. LOGIN
+// ======================================================
+
+function LoginScreen({ navigation }) {
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email.trim() || !senha.trim()) {
+      Alert.alert("Atenção", "Preencha todos os campos!");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          senha: senha.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.primeiro_acesso) {
+          Alert.alert("Primeiro acesso", data.mensagem);
+
+          navigation.navigate("PrimeiroAcesso", {
+            id_usuario: data.usuario_id,
+          });
+
+          return;
+        }
+
+        Alert.alert(
+          "Erro",
+          data.mensagem || data.error || "Falha ao autenticar.",
+        );
+
+        return;
+      }
+
+      navigation.reset({
+        index: 0,
+        routes: [
+          {
+            name: "Home",
+            params: {
+              user: data.usuario,
+            },
+          },
+        ],
+      });
+    } catch (error) {
+      Alert.alert("Erro de conexão", "Não foi possível conectar ao servidor.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={styles.loginContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.loginHeader}>
+          <View style={styles.loginLogoFrame}>
+            <Logo style={styles.loginLogoImage} />
+          </View>
+
+          <Text style={styles.loginBrand}>
+            <Text style={styles.loginBrandBarber}>BARBER</Text><Text style={styles.loginBrandShop}>SHOP</Text>
+          </Text>
+          <Text style={styles.loginTagline}>ESTILO  •  PRECISÃO  •  TRADIÇÃO</Text>
+        </View>
+
+        <View style={styles.loginIntro}>
+          <Text style={styles.loginTitle}>Bem-vindo de volta</Text>
+          <Text style={styles.loginSubtitle}>Entre para agendar seu próximo corte</Text>
+        </View>
+
+        <View style={styles.loginForm}>
+          <Text style={styles.loginLabel}>E-MAIL</Text>
+          <TextInput
+            style={styles.loginInput}
+            placeholder="seu@email.com"
+            placeholderTextColor={COLORS.gray}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+
+          <Text style={styles.loginLabel}>SENHA</Text>
+          <TextInput
+            style={styles.loginInput}
+            placeholder="Digite sua senha"
+            placeholderTextColor={COLORS.gray}
+            value={senha}
+            onChangeText={setSenha}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+
+          <TouchableOpacity
+            style={styles.loginForgotButton}
+            onPress={() => navigation.navigate("EsqueciSenha")}
+          >
+            <Text style={styles.loginForgotText}>Esqueci a senha</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.loginPrimaryButton, loading && styles.loginButtonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="#111111" />
+            ) : (
+              <Text style={styles.loginPrimaryButtonText}>ENTRAR</Text>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.loginOrContainer}>
+            <View style={styles.loginOrLine} />
+            <Text style={styles.loginOrText}>OU</Text>
+            <View style={styles.loginOrLine} />
+          </View>
+
+          <TouchableOpacity onPress={() => navigation.navigate("Cadastro")}>
+            <Text style={styles.loginBottomLink}>
+              Ainda não tem uma conta? <Text style={styles.loginBottomLinkAccent}>Cadastre-se</Text>
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ======================================================
+// RECUPERAÇÃO DE SENHA
+// ======================================================
+function EsqueciSenhaScreen({ navigation }) {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const solicitarRecuperacao = async () => {
+    const emailLimpo = email.trim().toLowerCase();
+    if (!emailLimpo) {
+      Alert.alert("Atenção", "Digite o e-mail cadastrado na sua conta.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/esqueci-senha`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailLimpo }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        Alert.alert("Não foi possível solicitar", data.error || data.mensagem || "Tente novamente mais tarde.");
+        return;
+      }
+      Alert.alert("Confira seu e-mail", data.mensagem || "Se esse e-mail estiver cadastrado, você receberá um código de recuperação.", [
+        { text: "OK", onPress: () => navigation.navigate("ResetarSenha", { email: emailLimpo }) },
+      ]);
+    } catch (error) {
+      Alert.alert("Erro de conexão", "Não foi possível conectar ao servidor.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.authContainer} keyboardShouldPersistTaps="handled">
+        <Logo />
+        <Text style={styles.brand}><Text style={styles.brandBarber}>Barber</Text><Text style={styles.brandShop}>Shop</Text></Text>
+        <Text style={styles.authTitle}>Recuperar senha</Text>
+        <Text style={styles.authSubtitle}>Informe o e-mail associado à sua conta. Enviaremos um código de 6 dígitos para criar uma nova senha.</Text>
+        <View style={styles.form}>
+          <Text style={styles.label}>E-MAIL CADASTRADO</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="seu@email.com"
+            placeholderTextColor={COLORS.gray}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+          />
+          <PrimaryButton title="Enviar código de recuperação" onPress={solicitarRecuperacao} loading={loading} />
+          <TouchableOpacity style={{ alignItems: "center", marginTop: 22 }} onPress={() => navigation.navigate("Login")}>
+            <Text style={styles.yellowText}>Voltar para o login</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function ResetarSenhaScreen({ route, navigation }) {
+  const [email, setEmail] = useState(route.params?.email || "");
+  const [codigo, setCodigo] = useState(route.params?.token || "");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const redefinirSenha = async () => {
+    if (!email.trim()) return Alert.alert("Atenção", "Informe o e-mail da sua conta.");
+    if (codigo.trim().length < 6) return Alert.alert("Atenção", "Digite o código de 6 dígitos enviado por e-mail.");
+    if (novaSenha.trim().length < 6) return Alert.alert("Atenção", "A senha deve ter pelo menos 6 caracteres.");
+    if (novaSenha !== confirmarSenha) return Alert.alert("Atenção", "As senhas não coincidem.");
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/resetar-senha`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), codigo: codigo.trim(), nova_senha: novaSenha }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        Alert.alert("Não foi possível alterar", data.error || "Solicite um novo código de recuperação.");
+        return;
+      }
+      Alert.alert("Senha alterada", "Sua senha foi atualizada. Entre com a nova senha.", [
+        { text: "Ir para login", onPress: () => navigation.reset({ index: 0, routes: [{ name: "Login" }] }) },
+      ]);
+    } catch (error) {
+      Alert.alert("Erro de conexão", "Não foi possível conectar ao servidor.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.authContainer} keyboardShouldPersistTaps="handled">
+        <Logo />
+        <Text style={styles.brand}><Text style={styles.brandBarber}>Barber</Text><Text style={styles.brandShop}>Shop</Text></Text>
+        <Text style={styles.authTitle}>Nova senha</Text>
+        <Text style={styles.authSubtitle}>Digite o código de 6 dígitos que enviamos para o seu e-mail e escolha uma nova senha.</Text>
+        <View style={styles.form}>
+          <Text style={styles.label}>E-MAIL CADASTRADO</Text>
+          <TextInput style={styles.input} placeholder="seu@email.com" placeholderTextColor={COLORS.gray} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+          <Text style={styles.label}>CÓDIGO DO E-MAIL</Text>
+          <TextInput style={styles.input} placeholder="000000" placeholderTextColor={COLORS.gray} value={codigo} onChangeText={(t) => setCodigo(t.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" maxLength={6} />
+          <Text style={styles.label}>NOVA SENHA</Text>
+          <TextInput style={styles.input} placeholder="Mínimo de 6 caracteres" placeholderTextColor={COLORS.gray} value={novaSenha} onChangeText={setNovaSenha} secureTextEntry autoCapitalize="none" />
+          <Text style={styles.label}>CONFIRMAR NOVA SENHA</Text>
+          <TextInput style={styles.input} placeholder="Digite novamente" placeholderTextColor={COLORS.gray} value={confirmarSenha} onChangeText={setConfirmarSenha} secureTextEntry autoCapitalize="none" />
+          <PrimaryButton title="Salvar nova senha" onPress={redefinirSenha} loading={loading} />
+          <TouchableOpacity style={{ alignItems: "center", marginTop: 22 }} onPress={() => navigation.navigate("EsqueciSenha")}>
+            <Text style={styles.yellowText}>Não recebi o código</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ======================================================
+// DOCUMENTOS LEGAIS
+// ======================================================
+
+function LegalDocumentScreen({ route }) {
+  const isTerms = route.name === "TermosUso";
+  const title = isTerms ? "Termos de Uso" : "Política de Privacidade";
+
+  const sections = isTerms
+    ? [
+        ["1. Sobre o aplicativo", "O BarberShop permite que clientes consultem serviços e utilizem recursos de agendamento e gerenciamento de conta oferecidos pela barbearia."],
+        ["2. Cadastro e conta", "Informe dados verdadeiros e mantenha seu e-mail atualizado. Você é responsável por manter a confidencialidade das credenciais da sua conta e por avisar a barbearia se suspeitar de uso não autorizado."],
+        ["3. Agendamentos e cancelamentos", "Confira os detalhes do serviço, data e horário antes de confirmar um agendamento. Regras de cancelamento, atrasos e disponibilidade podem ser informadas pela barbearia e devem ser consultadas antes do atendimento."],
+        ["4. Uso adequado", "Não utilize o aplicativo para atividades ilegais, tentativas de acesso não autorizado ou ações que prejudiquem o funcionamento do serviço."],
+        ["5. Disponibilidade", "O aplicativo pode ficar temporariamente indisponível para manutenção ou por problemas técnicos. Os recursos e serviços podem ser atualizados para melhorar a experiência."],
+        ["6. Contato e atualizações", "Estes termos podem ser atualizados quando necessário. Publique a versão vigente e informe um canal de contato oficial da barbearia antes de disponibilizar o aplicativo ao público."],
+      ]
+    : [
+        ["1. Dados tratados", "O aplicativo pode tratar nome completo, e-mail, CEP, dados de autenticação e informações relacionadas a agendamentos e uso dos serviços."],
+        ["2. Finalidades", "Os dados são utilizados para criar e administrar sua conta, autenticar o acesso, permitir agendamentos, prestar atendimento, enviar mensagens necessárias ao serviço e proteger a segurança do aplicativo."],
+        ["3. Compartilhamento", "Os dados devem ser acessados apenas por pessoas e fornecedores que precisem deles para operar o serviço, cumprir obrigações legais ou proteger direitos. Não venda dados pessoais dos clientes."],
+        ["4. Armazenamento e segurança", "São adotadas medidas técnicas e organizacionais razoáveis para proteger os dados. Nenhum sistema é totalmente livre de riscos; mantenha suas credenciais seguras e use apenas versões oficiais do aplicativo."],
+        ["5. Retenção e direitos", "Os dados são mantidos pelo tempo necessário às finalidades do serviço e às obrigações legais aplicáveis. Conforme a legislação, você pode solicitar confirmação de tratamento, acesso, correção ou exclusão de dados, quando cabível."],
+        ["6. Contato sobre privacidade", "Para exercer seus direitos ou esclarecer dúvidas, entre em contato pelo canal oficial da barbearia. Antes de publicar o aplicativo, substitua esta orientação pelo e-mail ou contato real do responsável pelo tratamento dos dados."],
+      ];
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.legalContainer}>
+        <Text style={styles.authTitle}>{title}</Text>
+        <Text style={styles.authSubtitle}>BarberShop · Leia com atenção</Text>
+        <Text style={styles.legalNotice}>
+          Documento inicial para o aplicativo. O responsável pela barbearia deve revisar e completar os dados de contato e as regras específicas antes de publicar.
+        </Text>
+        {sections.map(([heading, body]) => (
+          <View key={heading} style={styles.legalSection}>
+            <Text style={styles.legalHeading}>{heading}</Text>
+            <Text style={styles.legalBody}>{body}</Text>
+          </View>
+        ))}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ======================================================
+// 2. CADASTRO
+// ======================================================
+
+function CadastroScreen({ navigation }) {
+  const [nome, setNome] = useState("");
+  const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [email, setEmail] = useState("");
+  const [cep, setCep] = useState("");
+  const [senha, setSenha] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleCadastrar = async () => {
+    if (!aceitouTermos) {
+      Alert.alert("Aceite necessário", "Leia e aceite os Termos de Uso e a Política de Privacidade para criar sua conta.");
+      return;
+    }
+
+    if (!nome.trim() || !email.trim() || !cep.trim() || !senha.trim()) {
+      Alert.alert("Atenção", "Preencha todos os campos!");
+
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/cadastrar`, {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          nome_completo: nome.trim(),
+
+          email: email.trim(),
+
+          cep: cep.trim(),
+
+          senha: senha.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Alert.alert(
+          "Erro",
+          data.error || data.mensagem || "Não foi possível cadastrar.",
+        );
+
+        return;
+      }
+
+      Alert.alert("Sucesso!", "Conta criada com sucesso!", [
+        {
+          text: "Entrar",
+          onPress: () => navigation.navigate("Login"),
+        },
+      ]);
+    } catch (error) {
+      Alert.alert("Erro de conexão", "Não foi possível conectar ao servidor.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.authContainer}>
+        <View style={styles.authHeader}>
+          <Logo />
+
+          <Text style={styles.brand}><Text style={styles.brandBarber}>Barber</Text><Text style={styles.brandShop}>Shop</Text></Text>
+        </View>
+
+        <Text style={styles.authTitle}>Crie sua conta</Text>
+
+        <Text style={styles.authSubtitle}>
+          Cadastre-se para agendar seus cortes
+        </Text>
+
+        <View style={styles.divider} />
+
+        <View style={styles.form}>
+          <Text style={styles.label}>NOME COMPLETO</Text>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Seu nome completo"
+            placeholderTextColor={COLORS.gray}
+            value={nome}
+            onChangeText={setNome}
+          />
+
+          <Text style={styles.label}>E-MAIL</Text>
+
+          <TextInput
+            style={styles.input}
+            placeholder="seu@email.com"
+            placeholderTextColor={COLORS.gray}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.label}>SENHA</Text>
+
+          <TextInput
+            style={styles.input}
+            placeholder="••••••••"
+            placeholderTextColor={COLORS.gray}
+            value={senha}
+            onChangeText={setSenha}
+            secureTextEntry
+          />
+
+          <Text style={styles.label}>CEP</Text>
+
+          <TextInput
+            style={styles.input}
+            placeholder="00000-000"
+            placeholderTextColor={COLORS.gray}
+            value={cep}
+            onChangeText={setCep}
+            keyboardType="numeric"
+          />
+
+          <View style={styles.termsRow}>
+            <TouchableOpacity
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: aceitouTermos }}
+              accessibilityLabel="Aceitar Termos de Uso e Política de Privacidade"
+              style={[styles.checkBox, !aceitouTermos && styles.checkBoxUnchecked]}
+              onPress={() => setAceitouTermos((valor) => !valor)}
+            >
+              {aceitouTermos ? <Text style={styles.checkText}>✓</Text> : null}
+            </TouchableOpacity>
+
+            <Text style={styles.termsText}>
+              Ao se cadastrar, você concorda com os{" "}
+              <Text
+                accessibilityRole="link"
+                style={styles.yellowText}
+                onPress={() => navigation.navigate("TermosUso")}
+              >Termos de Uso</Text> e a{" "}
+              <Text
+                accessibilityRole="link"
+                style={styles.yellowText}
+                onPress={() => navigation.navigate("PoliticaPrivacidade")}
+              >Política de Privacidade</Text>.
+            </Text>
+          </View>
+
+          <PrimaryButton
+            title="Criar conta"
+            onPress={handleCadastrar}
+            loading={loading}
+          />
+
+          <View style={styles.orContainer}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>OU</Text>
+            <View style={styles.orLine} />
+          </View>
+
+          <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+            <Text style={styles.bottomLink}>
+              Já tem uma conta? <Text style={styles.yellowText}>Entrar</Text>
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ======================================================
+// 3. HOME
+// ======================================================
+
+function HomeScreen({ route, navigation }) {
+  const user = route.params?.user || {
+    nome: "Cliente",
+    id_usuario: 1,
+  };
+
+  const [proximoAgendamento, setProximo] = useState(null);
+
+  const [loading, setLoading] = useState(true);
+
+  const [pontosFidelidade, setPontosFidelidade] = useState(0);
+
+  const [metaFidelidade, setMetaFidelidade] = useState(null);
+
+  const [barbeiros, setBarbeiros] = useState([]);
+
+  const [loadingBarbeiros, setLoadingBarbeiros] = useState(true);
+
+  const fetchFidelidade = async () => {
+    try {
+      const [resFid, resResgate] = await Promise.all([
+        fetch(`${API_URL}/fidelidade/${user.id_usuario}`),
+
+        fetch(`${API_URL}/servicos/resgate`),
+      ]);
+
+      const dataFid = await resFid.json();
+
+      const dataResgate = await resResgate.json();
+
+      const pontos = dataFid?.pontos ? parseInt(dataFid.pontos) : 0;
+
+      const totalResgatado = dataFid?.total_resgatado
+        ? parseInt(dataFid.total_resgatado)
+        : 0;
+
+      const recompensas = Array.isArray(dataResgate) ? dataResgate : [];
+
+      const recompensasOrdenadas = [...recompensas].sort(
+        (a, b) => parseInt(a.pontos_resgate) - parseInt(b.pontos_resgate),
+      );
+
+      let restanteResgatado = totalResgatado;
+
+      let proxima = null;
+
+      for (const r of recompensasOrdenadas) {
+        const custo = parseInt(r.pontos_resgate);
+
+        if (restanteResgatado >= custo) {
+          restanteResgatado -= custo;
+          continue;
+        }
+
+        if (pontos < custo) {
+          proxima = { ...r, custo };
+          break;
+        }
+      }
+
+      setPontosFidelidade(pontos);
+
+      setMetaFidelidade(proxima ? proxima.custo : null);
+    } catch (error) {
+      setPontosFidelidade(0);
+      setMetaFidelidade(null);
+    }
+  };
+
+  const fetchBarbeiros = async () => {
+    try {
+      const res = await fetch(`${API_URL}/funcionarios`);
+
+      const lista = await res.json();
+
+      if (!Array.isArray(lista)) {
+        setBarbeiros([]);
+        return;
+      }
+
+      // data de hoje no formato YYYY-MM-DD (horário local)
+      const hoje = new Date();
+
+      const dataHoje =
+        `${hoje.getFullYear()}-` +
+        `${String(hoje.getMonth() + 1).padStart(2, "0")}-` +
+        `${String(hoje.getDate()).padStart(2, "0")}`;
+
+      const minutosAgora = hoje.getHours() * 60 + hoje.getMinutes();
+
+      // busca os horários livres de cada funcionário
+      const comHorarios = await Promise.all(
+        lista.map(async (f) => {
+          try {
+            const r = await fetch(
+              `${API_URL}/funcionarios/${f.id_funcionario}/horarios?data=${dataHoje}`,
+            );
+
+            const json = await r.json();
+
+            const horarios = Array.isArray(json)
+              ? json
+              : Array.isArray(json?.horarios)
+                ? json.horarios
+                : [];
+
+            // ignora horários que já passaram hoje
+            const futuros = horarios.filter((h) => {
+              const [hh, mm] = String(h).split(":").map(Number);
+
+              if (Number.isNaN(hh) || Number.isNaN(mm)) {
+                return true;
+              }
+
+              return hh * 60 + mm > minutosAgora;
+            });
+
+            return {
+              ...f,
+              horariosHoje: futuros.length,
+            };
+          } catch (e) {
+            return {
+              ...f,
+              horariosHoje: null,
+            };
+          }
+        }),
+      );
+
+      setBarbeiros(comHorarios);
+    } catch (error) {
+      setBarbeiros([]);
+    } finally {
+      setLoadingBarbeiros(false);
+    }
+  };
+
+  const fetchAgendamentos = async () => {
+    try {
+      setLoading(true);
+
+      const res = await fetch(`${API_URL}/agendamentos`);
+
+      const data = await res.json();
+
+      if (!Array.isArray(data)) {
+        setProximo(null);
+        return;
+      }
+
+      const meus = data.filter(
+        (item) => String(item.id_usuario) === String(user.id_usuario),
+      );
+
+      const agora = new Date();
+
+      const ativos = meus.filter(
+        (item) =>
+          (item.status === "agendado" || item.status === "confirmado") &&
+          new Date(item.data) >= agora,
+      );
+
+      ativos.sort((a, b) => new Date(a.data) - new Date(b.data));
+
+      setProximo(ativos.length ? ativos[0] : null);
+    } catch (error) {
+      setProximo(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchAgendamentos();
+      fetchFidelidade();
+      fetchBarbeiros();
+    }, [user.id_usuario]),
+  );
+
+  const dataFormatada = proximoAgendamento
+    ? new Date(proximoAgendamento.data).toLocaleDateString("pt-BR", {
+        weekday: "long",
+        day: "numeric",
+        month: "short",
+      })
+    : "";
+
+  const horaFormatada = proximoAgendamento
+    ? new Date(proximoAgendamento.data).toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.homeContent}>
+        {/* HEADER */}
+
+        <View style={styles.homeHeader}>
+          <View>
+            <Text style={styles.welcome}>BEM-VINDO DE VOLTA</Text>
+
+            <Text style={styles.homeName}>{user.nome || "Cliente"}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={() => {
+              Alert.alert("Sair da conta", "Deseja realmente sair?", [
+                {
+                  text: "Cancelar",
+                  style: "cancel",
+                },
+                {
+                  text: "Sair",
+                  style: "destructive",
+                  onPress: () => {
+                    navigation.reset({
+                      index: 0,
+                      routes: [
+                        {
+                          name: "Login",
+                        },
+                      ],
+                    });
+                  },
+                },
+              ]);
+            }}
+          >
+            <Image
+              source={require("./assets/icon-sair.png")}
+              style={styles.logoutIconImage}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* PRÓXIMO AGENDAMENTO */}
+
+        <View style={styles.homeAppointment}>
+          <View style={styles.appointmentAccent} />
+
+          <Text style={styles.appointmentLabel}>PRÓXIMO AGENDAMENTO</Text>
+
+          {loading ? (
+            <ActivityIndicator
+              color={COLORS.yellow}
+              style={{
+                marginVertical: 30,
+              }}
+            />
+          ) : proximoAgendamento ? (
+            <>
+              <Text style={styles.appointmentBarber}>
+                {proximoAgendamento.funcionario_nome || "Barbeiro"}
+              </Text>
+
+              <Text style={styles.appointmentService}>
+                {proximoAgendamento.servicos?.[0]?.nome ||
+                  proximoAgendamento.servico_nome ||
+                  "Corte de cabelo"}
+              </Text>
+
+              <View style={styles.appointmentInfoRow}>
+                <Text style={styles.appointmentInfo}>📅 {dataFormatada}</Text>
+
+                <Text style={styles.appointmentInfo}>🕐 {horaFormatada}</Text>
+              </View>
+
+              <Text style={styles.appointmentPrice}>
+                R${" "}
+                {proximoAgendamento.valor_total
+                  ? parseFloat(proximoAgendamento.valor_total).toFixed(2)
+                  : "0.00"}
+              </Text>
+
+              <TouchableOpacity
+                style={styles.smallYellowButton}
+                onPress={() => navigation.navigate("Agendamento", { user })}
+              >
+                <Text style={styles.smallButtonText}>Alterar</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <View style={styles.emptyAppointment}>
+              <Text style={styles.emptyText}>
+                Você não possui agendamentos.
+              </Text>
+
+              <TouchableOpacity
+                style={styles.smallYellowButton}
+                onPress={() => navigation.navigate("Agendamento", { user })}
+              >
+                <Text style={styles.smallButtonText}>Agendar agora</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* O QUE VOCÊ PRECISA? */}
+
+        <SectionTitle>O que você precisa?</SectionTitle>
+
+        <View style={styles.actionGrid}>
+          <TouchableOpacity
+            style={[styles.actionCard, styles.actionCardActive]}
+            onPress={() => navigation.navigate("Agendamento", { user })}
+          >
+            <Text style={styles.actionIcon}>✚</Text>
+
+            <Text style={styles.actionTitle}>Agendar</Text>
+
+            <Text style={styles.actionSubtitle}>Marque seu horário</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => navigation.navigate("Historico", { user })}
+          >
+            <Text style={styles.actionIcon}>◷</Text>
+
+            <Text style={styles.actionTitle}>Histórico</Text>
+
+            <Text style={styles.actionSubtitle}>Seus agendamentos</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => navigation.navigate("Agendamento", { user })}
+          >
+            <Text style={styles.actionIcon}>✂</Text>
+
+            <Text style={styles.actionTitle}>Cabelo</Text>
+
+            <Text style={styles.actionSubtitle}>Serviços disponíveis</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => navigation.navigate("Agendamento", { user })}
+          >
+            <Text style={styles.actionIcon}>≋</Text>
+
+            <Text style={styles.actionTitle}>Barba</Text>
+
+            <Text style={styles.actionSubtitle}>Modelagem e aparo</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* FIDELIDADE */}
+
+        <SectionTitle>Programa de Fidelidade</SectionTitle>
+
+        <TouchableOpacity
+          style={styles.fidelityMiniCard}
+          onPress={() => navigation.navigate("Fidelidade", { user })}
+        >
+          <View style={styles.fidelityIconCircle}>
+            <Image
+              source={require("./assets/icon-fidelidade.png")}
+              style={styles.fidelityIconImage}
+              resizeMode="contain"
+            />
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <View style={styles.pointsRow}>
+              <Text style={styles.pointsValue}>{pontosFidelidade}</Text>
+
+              <Text style={styles.pointsUnit}>pts</Text>
+
+              <Text style={styles.pointsGoal}>
+                {metaFidelidade
+                  ? `Meta: ${metaFidelidade} pts`
+                  : "Meta atingida"}
+              </Text>
+            </View>
+
+            <View style={styles.progressBackground}>
+              <View
+                style={[
+                  styles.progressBar,
+                  {
+                    width: `${
+                      metaFidelidade
+                        ? Math.min(
+                            100,
+                            (pontosFidelidade / metaFidelidade) * 100,
+                          )
+                        : 100
+                    }%`,
+                  },
+                ]}
+              />
+            </View>
+
+            <Text style={styles.pointsDescription}>
+              Confira seus pontos e recompensas
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* ESTILO */}
+
+        <SectionTitle>Inspire-se</SectionTitle>
+
+        <ImageBackground
+          source={require("./assets/bg-inspire.png")}
+          style={styles.inspirationCard}
+          imageStyle={styles.inspirationCardImage}
+          resizeMode="cover"
+        >
+          <Text style={styles.inspirationTitle}>Encontre seu estilo</Text>
+
+          <Text style={styles.inspirationSubtitle}>
+            Modelos de cortes e barbas
+          </Text>
+
+          <TouchableOpacity
+            style={styles.inspirationButton}
+            onPress={() => navigation.navigate("Modelos", { user })}
+          >
+            <Text style={styles.smallButtonText}>Ver modelos</Text>
+          </TouchableOpacity>
+        </ImageBackground>
+
+        {/* BARBEIROS */}
+
+        <SectionTitle>Barbeiros disponíveis hoje</SectionTitle>
+
+        {loadingBarbeiros ? (
+          <ActivityIndicator
+            color={COLORS.yellow}
+            style={{ marginVertical: 20 }}
+          />
+        ) : barbeiros.length === 0 ? (
+          <Text style={styles.emptyText}>
+            Nenhum barbeiro disponível no momento.
+          </Text>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.barbersRow}
+          >
+            {barbeiros.map((b) => (
+              <TouchableOpacity
+                key={b.id_funcionario}
+                style={[styles.barberCard, styles.barberCardFixed]}
+                onPress={() => navigation.navigate("Agendamento", { user })}
+              >
+                <View style={styles.barberAvatar}>
+                  <Text style={styles.barberAvatarText}>
+                    {b.nome?.charAt(0) || "B"}
+                  </Text>
+                </View>
+
+                <Text style={styles.barberName} numberOfLines={1}>
+                  {b.nome?.split(" ")[0]}
+                </Text>
+
+                <Text style={styles.barberHours}>
+                  {b.horariosHoje === null
+                    ? "--"
+                    : b.horariosHoje === 1
+                      ? "1 horário"
+                      : `${b.horariosHoje} horários`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+      </ScrollView>
+
+      <BottomNav navigation={navigation} active="Home" user={user} />
+    </SafeAreaView>
+  );
+}
+
+// ======================================================
+// IMAGENS DOS SERVIÇOS
+// ======================================================
+
+const IMAGENS_SERVICOS = {
+  sobrancelha: require("./assets/servico-sobrancelha.png"),
+  hidratacao: require("./assets/servico-hidratacao.png"),
+  platinado: require("./assets/servico-platinado.png"),
+  barba: require("./assets/servico-barba.png"),
+  corte: require("./assets/servico-corte.png"),
+};
+
+// Escolhe a imagem pelo nome do serviço (ignora acentos e maiúsculas).
+// Retorna null se não houver imagem para o serviço.
+function imagemDoServico(nome) {
+  const n = String(nome || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (n.includes("sombrancelha") || n.includes("sobrancelha")) {
+    return IMAGENS_SERVICOS.sobrancelha;
+  }
+
+  if (n.includes("hidrat")) {
+    return IMAGENS_SERVICOS.hidratacao;
+  }
+
+  if (n.includes("platin")) {
+    return IMAGENS_SERVICOS.platinado;
+  }
+
+  if (n.includes("barba")) {
+    return IMAGENS_SERVICOS.barba;
+  }
+
+  if (n.includes("corte") || n.includes("cabelo")) {
+    return IMAGENS_SERVICOS.corte;
+  }
+
+  return null;
+}
+
+// ======================================================
+// 4. AGENDAMENTO
+// ======================================================
+
+
+// Gera os próximos "quantidade" dias a partir de hoje (data real do aparelho)
+const SEMANAS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+
+function gerarProximosDias(quantidade = 14) {
+  const dias = [];
+  const hoje = new Date();
+
+  for (let i = 0; i < quantidade; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + i);
+    const ano = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, "0");
+    const dia = String(d.getDate()).padStart(2, "0");
+
+    dias.push({
+      iso: `${ano}-${mes}-${dia}`,
+      semana: SEMANAS[d.getDay()],
+      numero: dia,
+    });
+  }
+
+  return dias;
+}
+
+function AgendamentoScreen({ route, navigation }) {
+  const user = route.params?.user;
+
+  const [servicos, setServicos] = useState([]);
+
+  const [funcionarios, setFuncionarios] = useState([]);
+
+  const [servicosSel, setServicosSel] = useState([]);
+
+  const [barbeiroSel, setBarbeiroSel] = useState(null);
+
+  const [data, setData] = useState(gerarProximosDias(1)[0].iso);
+
+  const [hora, setHora] = useState("14:00");
+
+  const [loading, setLoading] = useState(false);
+
+  const [horariosDisponiveis, setHorariosDisponiveis] = useState([]);
+
+  const [loadingHorarios, setLoadingHorarios] = useState(false);
+
+  useEffect(() => {
+    carregarDados();
+  }, []);
+
+  useEffect(() => {
+    if (!barbeiroSel || !data) {
+      setHorariosDisponiveis([]);
+
+      return;
+    }
+
+    buscarHorariosDisponiveis();
+  }, [barbeiroSel, data]);
+
+  const buscarHorariosDisponiveis = async () => {
+    setLoadingHorarios(true);
+
+    setHora("");
+
+    try {
+      const res = await fetch(
+        `${API_URL}/funcionarios/${barbeiroSel.id_funcionario}/horarios?data=${data}`,
+      );
+
+      const json = await res.json();
+
+      const lista = Array.isArray(json)
+        ? json
+        : Array.isArray(json?.horarios)
+          ? json.horarios
+          : [];
+
+      setHorariosDisponiveis(lista);
+    } catch (error) {
+      setHorariosDisponiveis([]);
+
+      Alert.alert(
+        "Erro",
+        "Não foi possível carregar os horários deste barbeiro.",
+      );
+    } finally {
+      setLoadingHorarios(false);
+    }
+  };
+
+  const carregarDados = async () => {
+    try {
+      const [resS, resF] = await Promise.all([
+        fetch(`${API_URL}/servicos`),
+
+        fetch(`${API_URL}/funcionarios`),
+      ]);
+
+      const sData = await resS.json();
+
+      const fData = await resF.json();
+
+      setServicos(
+        Array.isArray(sData) ? sData.filter((s) => s.status == 1) : [],
+      );
+
+      setFuncionarios(Array.isArray(fData) ? fData : []);
+    } catch (error) {
+      Alert.alert(
+        "Erro",
+        "Não foi possível carregar os serviços e profissionais.",
+      );
+    }
+  };
+
+  const toggleServico = (item) => {
+    setServicosSel((prev) => {
+      const jaSelecionado = prev.some(
+        (s) => s.id_servicos === item.id_servicos,
+      );
+
+      if (jaSelecionado) {
+        return prev.filter((s) => s.id_servicos !== item.id_servicos);
+      }
+
+      return [...prev, item];
+    });
+  };
+
+  const valorTotal = servicosSel.reduce(
+    (sum, s) => sum + parseFloat(s.preco || 0),
+    0,
+  );
+
+  const handleConfirmar = async () => {
+    if (!user) {
+      Alert.alert("Erro", "Faça login novamente.");
+
+      navigation.navigate("Login");
+
+      return;
+    }
+
+    if (!servicosSel.length || !barbeiroSel || !data || !hora) {
+      Alert.alert(
+        "Atenção",
+        "Selecione ao menos um serviço, barbeiro, data e horário!",
+      );
+
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const payload = {
+        id_usuario: user.id_usuario,
+
+        id_funcionario: barbeiroSel.id_funcionario,
+
+        servicos: servicosSel.map((s) => ({
+          tipo_servico: s.id_servicos,
+
+          valor: parseFloat(s.preco),
+        })),
+
+        data: `${data}T${hora}:00`,
+
+        status: "agendado",
+
+        forma_pagamento: "Pix",
+      };
+
+      const res = await fetch(`${API_URL}/agendamentos`, {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify(payload),
+      });
+
+      const resposta = await res.json();
+
+      if (!res.ok) {
+        Alert.alert(
+          "Erro",
+          resposta.error || resposta.mensagem || "Falha ao agendar.",
+        );
+
+        return;
+      }
+
+      Alert.alert(
+        "Agendamento confirmado!",
+        resposta.mensagem || "Agendamento efetuado com sucesso!",
+        [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate("Home", { user }),
+          },
+        ],
+      );
+    } catch (error) {
+      Alert.alert("Erro", "Erro ao conectar ao servidor.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.bookingContent}>
+        <Text style={styles.pageTitle}>Agendar</Text>
+
+        <Text style={styles.pageSubtitle}>
+          Escolha o serviço, dia e horário
+        </Text>
+
+        {/* ETAPAS */}
+
+        <View style={styles.stepsRow}>
+          <View style={styles.stepActive}>
+            <Text style={styles.stepNumber}>1</Text>
+            <Text style={styles.stepTextActive}>Serviço</Text>
+          </View>
+
+          <View style={styles.stepLine} />
+
+          <View style={styles.stepActive}>
+            <Text style={styles.stepNumber}>2</Text>
+            <Text style={styles.stepTextActive}>Data</Text>
+          </View>
+
+          <View style={styles.stepLine} />
+
+          <View style={styles.step}>
+            <Text style={styles.stepNumberInactive}>3</Text>
+            <Text style={styles.stepText}>Barbeiro</Text>
+          </View>
+        </View>
+
+        <SectionTitle>ESCOLHA O SERVIÇO</SectionTitle>
+
+        <Text style={styles.multiSelectHint}>
+          Toque para selecionar um ou mais serviços
+        </Text>
+
+        {servicos.map((item) => {
+          const selected = servicosSel.some(
+            (s) => s.id_servicos === item.id_servicos,
+          );
+
+          return (
+            <TouchableOpacity
+              key={item.id_servicos}
+              style={[
+                styles.serviceCard,
+                selected && styles.serviceCardSelected,
+              ]}
+              onPress={() => toggleServico(item)}
+            >
+              <View
+                style={[styles.checkbox, selected && styles.checkboxSelected]}
+              >
+                {selected && <Text style={styles.checkboxCheck}>✓</Text>}
+              </View>
+
+              <View style={styles.serviceIcon}>
+                {imagemDoServico(item.nome) ? (
+                  <Image
+                    source={imagemDoServico(item.nome)}
+                    style={styles.serviceImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.serviceIconText}>✂</Text>
+                )}
+              </View>
+
+              <View style={styles.serviceInfo}>
+                <Text style={styles.serviceName}>{item.nome}</Text>
+
+                <Text style={styles.serviceDescription}>
+                  {item.duracao || "--"} min
+                  {" · "}+{item.pontos || 0} pts
+                </Text>
+              </View>
+
+              <View style={styles.serviceRight}>
+                <Text style={styles.servicePrice}>
+                  R$ {parseFloat(item.preco || 0).toFixed(2)}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+
+        <SectionTitle>ESCOLHA O DIA</SectionTitle>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.dateRow}
+        >
+          {gerarProximosDias(14).map((dia) => {
+            const selected = data === dia.iso;
+
+            return (
+              <TouchableOpacity
+                key={dia.iso}
+                style={[styles.dateCard, selected && styles.dateCardSelected]}
+                onPress={() => setData(dia.iso)}
+              >
+                <Text
+                  style={[styles.dateWeek, selected && styles.dateWeekSelected]}
+                >
+                  {dia.semana}
+                </Text>
+
+                <Text
+                  style={[
+                    styles.dateNumber,
+                    selected && styles.dateNumberSelected,
+                  ]}
+                >
+                  {dia.numero}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <SectionTitle>BARBEIROS DISPONÍVEIS</SectionTitle>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.barbersBookingRow}
+        >
+          {funcionarios.map((item) => {
+            const selected =
+              barbeiroSel?.id_funcionario === item.id_funcionario;
+
+            return (
+              <TouchableOpacity
+                key={item.id_funcionario}
+                style={[
+                  styles.bookingBarberCard,
+                  selected && styles.bookingBarberSelected,
+                ]}
+                onPress={() => setBarbeiroSel(item)}
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[
+                    styles.bookingAvatar,
+                    selected && styles.bookingAvatarSelected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.bookingAvatarText,
+                      selected && styles.bookingAvatarTextSelected,
+                    ]}
+                  >
+                    {item.nome?.charAt(0) || "B"}
+                  </Text>
+                </View>
+
+                <Text
+                  style={styles.bookingBarberName}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {item.nome}
+                </Text>
+
+                <Text style={styles.bookingBarberFunction} numberOfLines={1}>
+                  {item.funcao || "Barbeiro"}
+                </Text>
+
+                {selected && (
+                  <View style={styles.bookingBarberCheck}>
+                    <Text style={styles.bookingBarberCheckText}>✓</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <SectionTitle>HORÁRIOS DISPONÍVEIS</SectionTitle>
+
+        {!barbeiroSel ? (
+          <Text style={styles.multiSelectHint}>
+            Selecione um barbeiro para ver os horários disponíveis
+          </Text>
+        ) : loadingHorarios ? (
+          <ActivityIndicator
+            color={COLORS.yellow}
+            style={{ marginVertical: 20 }}
+          />
+        ) : horariosDisponiveis.length === 0 ? (
+          <Text style={styles.multiSelectHint}>
+            {barbeiroSel.nome} não tem horários disponíveis nesse dia
+          </Text>
+        ) : (
+          <View style={styles.hoursGrid}>
+            {horariosDisponiveis.map((h) => {
+              const selected = hora === h;
+
+              return (
+                <TouchableOpacity
+                  key={h}
+                  style={[styles.hourCard, selected && styles.hourCardSelected]}
+                  onPress={() => setHora(h)}
+                >
+                  <Text
+                    style={[
+                      styles.hourText,
+                      selected && styles.hourTextSelected,
+                    ]}
+                  >
+                    {h}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* RESUMO */}
+
+        <View style={styles.bookingSummary}>
+          <View style={styles.summaryTextBox}>
+            <Text style={styles.summarySmall} numberOfLines={2}>
+              {servicosSel.length
+                ? servicosSel.map((s) => s.nome).join(", ")
+                : "Nenhum serviço selecionado"}
+            </Text>
+
+            <Text style={styles.summaryMain}>
+              {data} · {hora}
+            </Text>
+
+            <Text style={styles.summarySmall}>
+              {barbeiroSel?.nome || "Escolha um barbeiro"}
+            </Text>
+          </View>
+
+          <Text style={styles.summaryPrice}>R$ {valorTotal.toFixed(2)}</Text>
+        </View>
+
+        <PrimaryButton
+          title="Confirmar Agendamento"
+          onPress={handleConfirmar}
+          loading={loading}
+        />
+      </ScrollView>
+
+      <BottomNav navigation={navigation} active="Agendar" user={user} />
+    </SafeAreaView>
+  );
+}
+
+// ======================================================
+// 5. FIDELIDADE
+// ======================================================
+
+function FidelidadeScreen({ route, navigation }) {
+  const user = route.params?.user;
+
+  const [fidelidadeData, setFidelidadeData] = useState(null);
+
+  const [recompensas, setRecompensas] = useState([]);
+
+  const [comoGanhar, setComoGanhar] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+
+  const [resgatandoId, setResgatandoId] = useState(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let ativo = true;
+
+      // Carrega imediatamente ao entrar (com spinner de tela cheia)
+      carregarDados(true);
+
+      // Atualiza automaticamente a cada 3 segundos, em segundo plano
+      // (sem mostrar o spinner, para não piscar a tela)
+      const intervalo = setInterval(() => {
+        if (ativo) {
+          carregarDados(false);
+        }
+      }, 3000);
+
+      // Para de atualizar quando sair da tela
+      return () => {
+        ativo = false;
+        clearInterval(intervalo);
+      };
+    }, [user?.id_usuario]),
+  );
+
+  const carregarDados = async (mostrarLoading = false) => {
+    if (mostrarLoading) {
+      setLoading(true);
+    }
+
+    try {
+      const [resFid, resResgate, resServicos] = await Promise.all([
+        fetch(`${API_URL}/fidelidade/${user.id_usuario}`),
+
+        fetch(`${API_URL}/servicos/resgate`),
+
+        fetch(`${API_URL}/servicos`),
+      ]);
+
+      const dataFid = await resFid.json();
+
+      const dataResgate = await resResgate.json();
+
+      const dataServicos = await resServicos.json();
+
+      setFidelidadeData(dataFid);
+
+      setRecompensas(Array.isArray(dataResgate) ? dataResgate : []);
+
+      setComoGanhar(
+        Array.isArray(dataServicos)
+          ? dataServicos.filter((s) => (s.pontos || 0) > 0)
+          : [],
+      );
+    } catch (error) {
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const pontos = fidelidadeData?.pontos ? parseInt(fidelidadeData.pontos) : 0;
+
+  const totalGanho = fidelidadeData?.total_ganho
+    ? parseInt(fidelidadeData.total_ganho)
+    : pontos;
+
+  const totalResgatado = fidelidadeData?.total_resgatado
+    ? parseInt(fidelidadeData.total_resgatado)
+    : 0;
+
+  let restanteResgatado = totalResgatado;
+
+  const recompensasOrdenadas = [...recompensas].sort(
+    (a, b) => parseInt(a.pontos_resgate) - parseInt(b.pontos_resgate),
+  );
+
+  const recompensasComStatus = recompensasOrdenadas.map((r) => {
+    const custo = parseInt(r.pontos_resgate);
+
+    let status = "bloqueado";
+
+    if (restanteResgatado >= custo) {
+      status = "resgatado";
+
+      restanteResgatado -= custo;
+    } else if (pontos >= custo) {
+      status = "disponivel";
+    }
+
+    return {
+      ...r,
+      custo,
+      status,
+    };
+  });
+
+  const proxima = recompensasComStatus.find((r) => r.status === "bloqueado");
+
+  const progresso = proxima
+    ? Math.min(100, (pontos / proxima.custo) * 100)
+    : 100;
+
+  const faltam = proxima ? Math.max(0, proxima.custo - pontos) : 0;
+
+  const handleResgatar = (idServico, nomeServico, custo) => {
+    Alert.alert(
+      "Confirmar resgate",
+      `Trocar ${custo} pontos por "${nomeServico}"?`,
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+
+        {
+          text: "Resgatar",
+
+          onPress: async () => {
+            setResgatandoId(idServico);
+
+            try {
+              const res = await fetch(`${API_URL}/fidelidade/resgatar`, {
+                method: "POST",
+
+                headers: {
+                  "Content-Type": "application/json",
+                },
+
+                body: JSON.stringify({
+                  id_usuario: user.id_usuario,
+
+                  id_servico: idServico,
+                }),
+              });
+
+              const data = await res.json();
+
+              if (!res.ok) {
+                Alert.alert("Erro", data.error || "Não foi possível resgatar.");
+
+                return;
+              }
+
+              Alert.alert("Sucesso!", data.mensagem);
+
+              carregarDados();
+            } catch (error) {
+              Alert.alert("Erro", "Conexão indisponível.");
+            } finally {
+              setResgatandoId(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.centerLoading}>
+          <ActivityIndicator color={COLORS.yellow} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.fidelityContent}>
+        <Text style={styles.pageTitle}>Fidelidade</Text>
+
+        {/* PONTOS */}
+
+        <View style={styles.pointsCard}>
+          <View style={styles.pointsHeader}>
+            <View>
+              <Text style={styles.pointsLabel}>SEUS PONTOS</Text>
+
+              <Text style={styles.bigPoints}>
+                {pontos}
+                <Text style={styles.pts}> pts</Text>
+              </Text>
+            </View>
+
+            <Image
+              source={require("./assets/icon-fidelidade.png")}
+              style={styles.medalImage}
+              resizeMode="contain"
+            />
+          </View>
+
+          {proxima && (
+            <>
+              <View style={styles.progressHeader}>
+                <Text style={styles.grayText}>Próxima recompensa</Text>
+
+                <Text style={styles.yellowText}>
+                  {pontos}/{proxima.custo} pts
+                </Text>
+              </View>
+
+              <View style={styles.progressBackground}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    {
+                      width: `${progresso}%`,
+                    },
+                  ]}
+                />
+              </View>
+
+              <Text style={styles.grayText}>
+                Faltam <Text style={styles.whiteBold}>{faltam} pontos</Text>{" "}
+                para {proxima.nome}
+              </Text>
+            </>
+          )}
+        </View>
+
+        <SectionTitle>RECOMPENSAS</SectionTitle>
+
+        {recompensasComStatus.map((r, index) => (
+          <View key={r.id_servicos} style={styles.rewardRow}>
+            {imagemDoServico(r.nome) ? (
+              <View style={styles.rewardImageWrap}>
+                <View
+                  style={[
+                    styles.rewardImageBox,
+                    r.status === "disponivel" && styles.rewardImageAvailable,
+                  ]}
+                >
+                  <Image
+                    source={imagemDoServico(r.nome)}
+                    style={[
+                      styles.rewardImage,
+                      r.status === "bloqueado" && { opacity: 0.45 },
+                    ]}
+                  />
+                </View>
+
+                <View
+                  style={[
+                    styles.rewardBadge,
+                    r.status === "resgatado" && styles.rewardDone,
+                  ]}
+                >
+                  <Text style={styles.rewardBadgeIcon}>
+                    {r.status === "resgatado"
+                      ? "✓"
+                      : r.status === "disponivel"
+                        ? "🎁"
+                        : "🔒"}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.rewardCircle,
+                  r.status === "resgatado" && styles.rewardDone,
+
+                  r.status === "disponivel" && styles.rewardAvailable,
+                ]}
+              >
+                <Text style={styles.rewardIcon}>
+                  {r.status === "resgatado"
+                    ? "✓"
+                    : r.status === "disponivel"
+                      ? "🎁"
+                      : "🔒"}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.rewardInfo}>
+              <Text
+                style={[
+                  styles.rewardName,
+                  r.status === "resgatado" && styles.rewardDoneText,
+                ]}
+              >
+                {r.nome}
+              </Text>
+
+              <Text style={styles.rewardPoints}>{r.custo} pontos</Text>
+            </View>
+
+            {r.status === "resgatado" && (
+              <View style={styles.doneTag}>
+                <Text style={styles.doneTagText}>Resgatado</Text>
+              </View>
+            )}
+
+            {r.status === "disponivel" && (
+              <TouchableOpacity
+                style={styles.redeemButton}
+                disabled={resgatandoId === r.id_servicos}
+                onPress={() => handleResgatar(r.id_servicos, r.nome, r.custo)}
+              >
+                {resgatandoId === r.id_servicos ? (
+                  <ActivityIndicator color="#111" size="small" />
+                ) : (
+                  <Text style={styles.redeemText}>Resgatar</Text>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {r.status === "bloqueado" && (
+              <View style={styles.nextTag}>
+                <Text style={styles.nextTagText}>
+                  {proxima?.id_servicos === r.id_servicos
+                    ? "Próximo"
+                    : "Bloqueado"}
+                </Text>
+              </View>
+            )}
+          </View>
+        ))}
+
+        {/* COMO GANHAR */}
+
+        <View style={styles.howToCard}>
+          <Text style={styles.howToTitle}>Como ganhar pontos</Text>
+
+          {comoGanhar.map((s) => (
+            <View key={s.id_servicos} style={styles.howToRow}>
+              <View style={styles.smallIconBox}>
+                {imagemDoServico(s.nome) ? (
+                  <Image
+                    source={imagemDoServico(s.nome)}
+                    style={styles.smallIconImage}
+                  />
+                ) : (
+                  <Text style={styles.smallIcon}>✂</Text>
+                )}
+              </View>
+
+              <Text style={styles.howToName}>{s.nome}</Text>
+
+              <Text style={styles.howToPoints}>+{s.pontos} pts</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* HISTÓRICO DE PONTOS */}
+
+        <SectionTitle>HISTÓRICO DE PONTOS</SectionTitle>
+
+        {fidelidadeData?.historico?.map((h, index) => (
+          <View key={index} style={styles.pointHistory}>
+            <View style={styles.smallIconBox}>
+              {imagemDoServico(h.descricao) ? (
+                <Image
+                  source={imagemDoServico(h.descricao)}
+                  style={styles.smallIconImage}
+                />
+              ) : (
+                <Text style={styles.smallIcon}>✂</Text>
+              )}
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={styles.historyName}>
+                {h.descricao || "Pontuação"}
+              </Text>
+
+              <Text style={styles.historyDate}>
+                {h.data ? new Date(h.data).toLocaleDateString("pt-BR") : ""}
+              </Text>
+            </View>
+
+            <Text
+              style={[
+                styles.historyPoints,
+                {
+                  color: h.tipo === "ganho" ? COLORS.green : COLORS.red,
+                },
+              ]}
+            >
+              {h.tipo === "ganho" ? "+" : "-"}
+              {h.pontos} pts
+            </Text>
+          </View>
+        ))}
+      </ScrollView>
+
+      <BottomNav navigation={navigation} active="Fidelidade" user={user} />
+    </SafeAreaView>
+  );
+}
+
+// ======================================================
+// 6. HISTÓRICO
+// ======================================================
+
+function HistoricoScreen({ route, navigation }) {
+  const user = route.params?.user;
+
+  const [historico, setHistorico] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+
+  const fetchHistorico = async (mostrarLoading = false) => {
+    try {
+      if (mostrarLoading) {
+        setLoading(true);
+      }
+
+      const res = await fetch(`${API_URL}/agendamentos`);
+
+      const data = await res.json();
+
+      if (!Array.isArray(data)) {
+        setHistorico([]);
+
+        return;
+      }
+
+      const meus = data.filter(
+        (item) => String(item.id_usuario) === String(user.id_usuario),
+      );
+
+      meus.sort((a, b) => new Date(b.data) - new Date(a.data));
+
+      setHistorico(meus);
+    } catch (error) {
+      setHistorico([]);
+    } finally {
+      if (mostrarLoading) {
+        setLoading(false);
+      }
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      let ativo = true;
+
+      // Carrega imediatamente ao entrar (com spinner de tela cheia)
+      fetchHistorico(true);
+
+      // Atualiza a cada 3 segundos, em segundo plano
+      // (sem mostrar o spinner, para não piscar a tela)
+      const intervalo = setInterval(() => {
+        if (ativo) {
+          fetchHistorico(false);
+        }
+      }, 3000);
+
+      // Para ao sair da tela
+      return () => {
+        ativo = false;
+        clearInterval(intervalo);
+      };
+    }, [user?.id_usuario]),
+  );
+
+  const cancelarAgendamento = (item) => {
+    Alert.alert(
+      "Cancelar agendamento",
+      "Deseja realmente cancelar este agendamento?",
+      [
+        { text: "Voltar", style: "cancel" },
+        {
+          text: "Cancelar agendamento",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const res = await fetch(
+                `${API_URL}/agendamentos/${item.id}/status`,
+                {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ status: "cancelado" }),
+                },
+              );
+
+              if (!res.ok) {
+                throw new Error("Falha ao cancelar");
+              }
+
+              await fetchHistorico(false);
+            } catch (error) {
+              Alert.alert(
+                "Erro",
+                "Não foi possível cancelar o agendamento. Tente novamente.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const cortes = historico.filter((item) => item.status === "concluido");
+
+  const barbeiros = new Set(historico.map((item) => item.funcionario_nome));
+
+  const totalGasto = cortes.reduce(
+    (total, item) => total + parseFloat(item.valor_total || 0),
+    0,
+  );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.centerLoading}>
+          <ActivityIndicator color={COLORS.yellow} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <FlatList
+        data={historico}
+        keyExtractor={(item, index) => String(item.id || index)}
+        contentContainerStyle={styles.historyContent}
+
+        ListHeaderComponent={
+          <>
+            <Text style={styles.pageTitle}>Histórico</Text>
+
+            {/* ESTATÍSTICAS */}
+
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}>
+                <Text style={styles.statIcon}>✂</Text>
+
+                <Text style={styles.statNumber}>{cortes.length}</Text>
+
+                <Text style={styles.statLabel}>Cortes</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <Text style={styles.statIcon}>≋</Text>
+
+                <Text style={styles.statNumber}>{barbeiros.size}</Text>
+
+                <Text style={styles.statLabel}>Barbeiros</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <Text style={styles.statIcon}>$</Text>
+
+                <Text style={styles.statNumberSmall}>
+                  R$ {totalGasto.toFixed(0)}
+                </Text>
+
+                <Text style={styles.statLabel}>Total gasto</Text>
+              </View>
+            </View>
+
+            <SectionTitle>AGENDAMENTOS</SectionTitle>
+          </>
+        }
+
+        ListEmptyComponent={
+          <View style={styles.emptyHistory}>
+            <Text style={styles.emptyHistoryIcon}>◷</Text>
+
+            <Text style={styles.emptyHistoryTitle}>Nenhum agendamento</Text>
+
+            <Text style={styles.emptyHistoryText}>
+              Seus cortes aparecerão aqui.
+            </Text>
+          </View>
+        }
+
+        renderItem={({ item }) => (
+          <View style={styles.historyCard}>
+            <View style={styles.historyTop}>
+              <View style={styles.historyServiceIcon}>
+                {imagemDoServico(
+                  item.servicos?.[0]?.nome ||
+                    item.servico_nome ||
+                    "Corte de Cabelo",
+                ) ? (
+                  <Image
+                    source={imagemDoServico(
+                      item.servicos?.[0]?.nome ||
+                        item.servico_nome ||
+                        "Corte de Cabelo",
+                    )}
+                    style={styles.historyServiceImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.historyServiceIconText}>✂</Text>
+                )}
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.historyService}>
+                  {item.servicos?.[0]?.nome ||
+                    item.servico_nome ||
+                    "Corte de Cabelo"}
+                </Text>
+
+                <Text style={styles.historyBarber}>
+                  {item.funcionario_nome || "Barbeiro"}
+                </Text>
+              </View>
+
+              <Text style={styles.historyPrice}>
+                R${" "}
+                {item.valor_total
+                  ? parseFloat(item.valor_total).toFixed(2)
+                  : "0.00"}
+              </Text>
+            </View>
+
+            <View style={styles.historyDetails}>
+              <Text style={styles.historyDetail}>
+                📅{" "}
+                {item.data
+                  ? new Date(item.data).toLocaleDateString("pt-BR")
+                  : "--"}
+              </Text>
+
+              <Text style={styles.historyDetail}>
+                🕐{" "}
+                {item.data
+                  ? new Date(item.data).toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "--:--"}
+              </Text>
+            </View>
+
+            <View style={styles.historyBottom}>
+              <Text
+                style={[
+                  styles.statusText,
+                  {
+                    color:
+                      item.status === "concluido"
+                        ? COLORS.green
+                        : item.status === "cancelado"
+                          ? COLORS.red
+                          : COLORS.yellow,
+                  },
+                ]}
+              >
+                ● {item.status || "agendado"}
+              </Text>
+
+              <View style={styles.historyActions}>
+                {(item.status === "agendado" ||
+                  item.status === "confirmado") && (
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => cancelarAgendamento(item)}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancelar</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={styles.outlineButton}
+                  onPress={() => navigation.navigate("Agendamento", { user })}
+                >
+                  <Text style={styles.outlineText}>Reagendar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+      />
+
+      <BottomNav navigation={navigation} active="Historico" user={user} />
+    </SafeAreaView>
+  );
+}
+
+// ======================================================
+// PRIMEIRO ACESSO
+// ======================================================
+
+function PrimeiroAcessoScreen({ route, navigation }) {
+  const id_usuario = route.params?.id_usuario;
+
+  const [senha, setSenha] = useState("");
+
+  const [loading, setLoading] = useState(false);
+
+  const salvarSenha = async () => {
+    if (!senha.trim()) {
+      Alert.alert("Atenção", "Digite uma senha.");
+
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/atualizar`, {
+        method: "PUT",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          id_usuario,
+          nome_completo: "",
+          cep: "",
+          email: "",
+          senha: senha.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Alert.alert(
+          "Erro",
+          data.error || "Não foi possível atualizar a senha.",
+        );
+
+        return;
+      }
+
+      Alert.alert("Sucesso", "Senha cadastrada. Faça login novamente.", [
+        {
+          text: "OK",
+          onPress: () => navigation.navigate("Login"),
+        },
+      ]);
+    } catch (error) {
+      Alert.alert("Erro", "Erro de conexão.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.authContainer}>
+        <Logo />
+
+        <Text style={styles.authTitle}>Primeiro acesso</Text>
+
+        <Text style={styles.authSubtitle}>
+          Cadastre sua senha para continuar.
+        </Text>
+
+        <Text style={styles.label}>NOVA SENHA</Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Digite sua senha"
+          placeholderTextColor={COLORS.gray}
+          value={senha}
+          onChangeText={setSenha}
+          secureTextEntry
+        />
+
+        <PrimaryButton
+          title="Salvar senha"
+          onPress={salvarSenha}
+          loading={loading}
+        />
+      </View>
+    </SafeAreaView>
+  );
+}
+// ======================================================
+// MODELOS (INSPIRE-SE)
+// ======================================================
+
+// Fotos ficam em ./assets/modelos/ (ex.: ./assets/modelos/buzz-cut.jpg).
+// Quando tiver a foto, troque imagem: null por require("./assets/modelos/nome.jpg").
+// Com imagem: null o card mostra um espaço reservado.
+const MODELOS_DATA = [
+  {
+    id: "1",
+    nome: "Corte Social",
+    categoria: "Cabelo",
+    descricao: "Clássico e versátil, ideal para o dia a dia.",
+    imagem: require("./assets/modelos/corte-social.jpg"),
+  },
+  {
+    id: "2",
+    nome: "Degradê",
+    categoria: "Cabelo",
+    descricao: "Transição suave com acabamento na navalha.",
+    imagem: require("./assets/modelos/degrade.jpg"),
+  },
+  {
+    id: "3",
+    nome: "Low Fade",
+    categoria: "Cabelo",
+    descricao: "Laterais com degradê mantendo o topo e atrás.",
+    imagem: require("./assets/modelos/low-fade.jpg"),
+  },
+  {
+    id: "4",
+    nome: "Moicano Moderno",
+    categoria: "Cabelo",
+    descricao: "Estilo marcante, com topo definido e volume.",
+    imagem: require("./assets/modelos/moicano-moderno.jpg"),
+  },
+  {
+    id: "9",
+    nome: "Buzz Cut",
+    categoria: "Cabelo",
+    descricao: "Cabelo bem curto e uniforme na máquina. Prático e sem frescura.",
+    imagem: require("./assets/modelos/buzz-cut.jpg"),
+  },
+  {
+    id: "10",
+    nome: "Mullet",
+    categoria: "Cabelo",
+    descricao: "Curto na frente e nas laterais, comprido atrás. Visual ousado.",
+    imagem: require("./assets/modelos/mullet.jpg"),
+  },
+  {
+    id: "12",
+    nome: "Taper Fade",
+    categoria: "Cabelo",
+    descricao: "Degradê discreto na nuca e nas laterais, bem alinhado.",
+    imagem: require("./assets/modelos/taper-fade.jpg"),
+  },
+  {
+    id: "5",
+    nome: "Barba Cheia",
+    categoria: "Barba",
+    descricao: "Volume natural com contornos bem definidos.",
+    imagem: require("./assets/modelos/barba-cheia.jpg"),
+  },
+  {
+    id: "6",
+    nome: "Barba Desenhada",
+    categoria: "Barba",
+    descricao: "Linhas precisas feitas na navalha.",
+    imagem: require("./assets/modelos/barba-desenhada.jpg"),
+  },
+];
+
+const CATEGORIAS_MODELOS = ["Todos", "Cabelo", "Barba"];
+
+function ModelosScreen({ route, navigation }) {
+  const user = route.params?.user;
+
+  const [categoriaAtiva, setCategoriaAtiva] = useState("Todos");
+
+  const modelosFiltrados =
+    categoriaAtiva === "Todos"
+      ? MODELOS_DATA
+      : MODELOS_DATA.filter((m) => m.categoria === categoriaAtiva);
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={styles.modelosContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.modelosHeader}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backIcon}>‹</Text>
+          </TouchableOpacity>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.pageTitle}>Inspire-se</Text>
+
+            <Text style={styles.pageSubtitle}>Modelos de cortes e barbas</Text>
+          </View>
+        </View>
+
+        <View style={styles.filterRow}>
+          {CATEGORIAS_MODELOS.map((categoria) => (
+            <TouchableOpacity
+              key={categoria}
+              style={[
+                styles.filterChip,
+                categoriaAtiva === categoria && styles.filterChipActive,
+              ]}
+              onPress={() => setCategoriaAtiva(categoria)}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  categoriaAtiva === categoria && styles.filterChipTextActive,
+                ]}
+              >
+                {categoria}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.modelosGrid}>
+          {modelosFiltrados.map((modelo) => (
+            <View key={modelo.id} style={styles.modelCard}>
+              {modelo.imagem ? (
+                <Image
+                  source={
+                    typeof modelo.imagem === "string"
+                      ? { uri: modelo.imagem }
+                      : modelo.imagem
+                  }
+                  style={styles.modelImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={[styles.modelImage, styles.modelImagePlaceholder]}>
+                  <Text style={styles.modelImagePlaceholderText}>✂</Text>
+                </View>
+              )}
+
+              <View style={styles.modelInfo}>
+                <Text style={styles.modelCategoryTag}>
+                  {modelo.categoria.toUpperCase()}
+                </Text>
+
+                <Text style={styles.modelName}>{modelo.nome}</Text>
+
+                <Text style={styles.modelDescricao}>{modelo.descricao}</Text>
+
+                <TouchableOpacity
+                  style={styles.modelBookButton}
+                  onPress={() => navigation.navigate("Agendamento", { user })}
+                >
+                  <Text style={styles.modelBookButtonText}>Agendar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ======================================================
+// PERFIL
+// ======================================================
+
+const somenteDigitos = (texto) => String(texto || "").replace(/\D/g, "");
+
+// 12345678 -> 12345-678
+const formatarCep = (texto) => {
+  const digitos = somenteDigitos(texto).slice(0, 8);
+
+  return digitos.length > 5
+    ? `${digitos.slice(0, 5)}-${digitos.slice(5)}`
+    : digitos;
+};
+
+// Linha do card "Informações da conta"
+function PerfilLinha({
+  icone,
+  imagem,
+  rotulo,
+  tag,
+  valor,
+  valorExtra,
+  botao,
+  onPress,
+}) {
+  const Container = onPress ? TouchableOpacity : View;
+
+  const propsContainer = onPress ? { onPress, activeOpacity: 0.7 } : {};
+
+  return (
+    <Container style={styles.profileInfoRow} {...propsContainer}>
+      <View style={styles.profileInfoIcon}>
+        {imagem ? (
+          <Image
+            source={imagem}
+            style={styles.profileInfoIconImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={styles.profileInfoIconText}>{icone}</Text>
+        )}
+      </View>
+
+      <View style={styles.profileInfoText}>
+        <View style={styles.profileLabelRow}>
+          <Text style={styles.profileInfoLabelInline}>{rotulo}</Text>
+
+          {tag ? (
+            <View style={styles.profileTag}>
+              <Text style={styles.profileTagText}>{tag}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <Text style={styles.profileInfoValue} numberOfLines={1}>
+          {valor}
+
+          {valorExtra ? (
+            <Text style={styles.profileInfoValueMuted}>{valorExtra}</Text>
+          ) : null}
+        </Text>
+      </View>
+
+      {botao}
+    </Container>
+  );
+}
+
+function PerfilScreen({ route, navigation }) {
+  const user = route.params?.user || {
+    nome: "Cliente",
+    email: "Não informado",
+    cep: "Não informado",
+    id_usuario: "-",
+  };
+
+  const [foto, setFoto] = useState(
+    user.foto_perfil ||
+      "https://img.magnific.com/vetores-gratis/gradiente-azul-do-utilizador_78370-4692.jpg?semt=ais_hybrid&w=740&q=80",
+  );
+
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+
+  // ---------- edição de dados ----------
+  // "editando" guarda qual campo está aberto ('nome' | 'cep' | 'senha')
+  // e "modalAberto" controla só a visibilidade (evita piscar na animação de saída)
+
+  const [editando, setEditando] = useState("nome");
+  const [modalAberto, setModalAberto] = useState(false);
+
+  const [campoNome, setCampoNome] = useState("");
+  const [campoCep, setCampoCep] = useState("");
+  const [senhaAtual, setSenhaAtual] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmaSenha, setConfirmaSenha] = useState("");
+  const [verSenhas, setVerSenhas] = useState(false);
+
+  const [erroModal, setErroModal] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [aviso, setAviso] = useState("");
+
+  // ---------- extras da tela ----------
+
+  const [localizacao, setLocalizacao] = useState("");
+  const [pontos, setPontos] = useState(null);
+
+  // Cidade/UF a partir do CEP (ViaCEP). Se falhar, mostra só o CEP.
+  useEffect(() => {
+    let ativo = true;
+
+    const cepNumeros = somenteDigitos(user.cep);
+
+    setLocalizacao("");
+
+    if (cepNumeros.length !== 8) {
+      return undefined;
+    }
+
+    fetch(`https://viacep.com.br/ws/${cepNumeros}/json/`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (ativo && d && !d.erro && d.localidade) {
+          setLocalizacao(`${d.localidade}, ${d.uf}`);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      ativo = false;
+    };
+  }, [user.cep]);
+
+  // Pontos de fidelidade para o selo ao lado do nome
+  useFocusEffect(
+    useCallback(() => {
+      let ativo = true;
+
+      fetch(`${API_URL}/fidelidade/${user.id_usuario}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (ativo && d && d.pontos != null) {
+            setPontos(Math.round(Number(d.pontos)));
+          }
+        })
+        .catch(() => {});
+
+      return () => {
+        ativo = false;
+      };
+    }, [user.id_usuario]),
+  );
+
+  // Some com o aviso de sucesso depois de alguns segundos
+  useEffect(() => {
+    if (!aviso) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => setAviso(""), 2800);
+
+    return () => clearTimeout(timer);
+  }, [aviso]);
+
+  const escolherFoto = async () => {
+    const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permissao.granted) {
+      Alert.alert(
+        "Permissão necessária",
+        "Precisamos de acesso à sua galeria para trocar a foto de perfil.",
+      );
+      return;
+    }
+
+    const resultado = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.6,
+      base64: true,
+    });
+
+    if (resultado.canceled) {
+      return;
+    }
+
+    const asset = resultado.assets[0];
+
+    const dataUri = asset.base64
+      ? `data:image/jpeg;base64,${asset.base64}`
+      : asset.uri;
+
+    setFoto(dataUri);
+
+    setEnviandoFoto(true);
+
+    try {
+      const response = await fetch(`${API_URL}/perfil`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id_usuario: user.id_usuario,
+          foto_perfil: dataUri,
+        }),
+      });
+
+      if (!response.ok) {
+        const textoErro = await response.text().catch(() => "");
+        console.log(
+          "ERRO AO SALVAR FOTO -> status:",
+          response.status,
+          textoErro,
+        );
+        throw new Error(`Falha ao salvar (${response.status})`);
+      }
+
+      navigation.setParams({
+        user: {
+          ...user,
+          foto_perfil: dataUri,
+        },
+      });
+    } catch (error) {
+      console.log("ERRO FOTO:", error);
+
+      // volta para a foto anterior se não salvou
+      setFoto(user.foto_perfil || foto);
+
+      Alert.alert(
+        "Erro",
+        "Não foi possível salvar a nova foto. Tente novamente.",
+      );
+    } finally {
+      setEnviandoFoto(false);
+    }
+  };
+
+  // ---------- abrir / fechar / salvar edição ----------
+
+  const abrirEdicao = (campo) => {
+    setCampoNome(user.nome || "");
+    setCampoCep(formatarCep(user.cep));
+    setSenhaAtual("");
+    setNovaSenha("");
+    setConfirmaSenha("");
+    setVerSenhas(false);
+    setErroModal("");
+
+    setEditando(campo);
+    setModalAberto(true);
+  };
+
+  const fecharEdicao = () => {
+    if (!salvando) {
+      setModalAberto(false);
+    }
+  };
+
+  const confirmarEdicao = async () => {
+    let dados;
+    let mensagem;
+
+    setErroModal("");
+
+    if (editando === "nome") {
+      const nome = campoNome.trim().replace(/\s+/g, " ");
+
+      if (nome.length < 6) {
+        setErroModal("O nome deve ter pelo menos 6 caracteres!");
+        return;
+      }
+
+      if (!/^[A-Za-zÀ-ÿ\s]+$/.test(nome)) {
+        setErroModal("O nome deve conter apenas letras!");
+        return;
+      }
+
+      if (nome === user.nome) {
+        setModalAberto(false);
+        return;
+      }
+
+      dados = { nome_completo: nome };
+      mensagem = "Nome atualizado!";
+    } else if (editando === "cep") {
+      const cepNumeros = somenteDigitos(campoCep);
+
+      if (cepNumeros.length !== 8) {
+        setErroModal("Digite um CEP válido com 8 números!");
+        return;
+      }
+
+      if (cepNumeros === somenteDigitos(user.cep)) {
+        setModalAberto(false);
+        return;
+      }
+
+      dados = { cep: cepNumeros };
+      mensagem = "CEP atualizado!";
+    } else {
+      if (!senhaAtual.trim()) {
+        setErroModal("Digite sua senha atual!");
+        return;
+      }
+
+      if (novaSenha.trim().length < 6) {
+        setErroModal("A nova senha deve ter pelo menos 6 caracteres!");
+        return;
+      }
+
+      if (novaSenha.trim() !== confirmaSenha.trim()) {
+        setErroModal("A confirmação não confere com a nova senha!");
+        return;
+      }
+
+      dados = {
+        senha_atual: senhaAtual.trim(),
+        nova_senha: novaSenha.trim(),
+      };
+      mensagem = "Senha alterada com sucesso!";
+    }
+
+    setSalvando(true);
+
+    try {
+      const response = await fetch(`${API_URL}/perfil`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id_usuario: user.id_usuario,
+          ...dados,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setErroModal(data.error || "Não foi possível salvar. Tente novamente.");
+        return;
+      }
+
+      // Atualiza o usuário guardado nas telas (nome / cep)
+      if (data.usuario) {
+        navigation.setParams({
+          user: {
+            ...user,
+            ...data.usuario,
+          },
+        });
+      }
+
+      setModalAberto(false);
+      setAviso(mensagem);
+    } catch (error) {
+      setErroModal("Não foi possível conectar ao servidor.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const sair = () => {
+    Alert.alert("Sair da conta", "Deseja realmente sair?", [
+      {
+        text: "Cancelar",
+        style: "cancel",
+      },
+      {
+        text: "Sair",
+        style: "destructive",
+        onPress: () => {
+          navigation.reset({
+            index: 0,
+            routes: [
+              {
+                name: "Login",
+              },
+            ],
+          });
+        },
+      },
+    ]);
+  };
+
+  const botaoEditar = (
+    <View style={styles.profileEditButton}>
+      <Text style={styles.profileEditIcon}>✎</Text>
+    </View>
+  );
+
+  const botaoAlterar = (
+    <View style={styles.profileChangeButton}>
+      <Text style={styles.profileChangeButtonText}>Alterar</Text>
+    </View>
+  );
+
+  const cepFormatado = formatarCep(user.cep);
+
+  const titulosModal = {
+    nome: {
+      titulo: "Editar nome",
+      subtitulo: "Como você quer ser chamado no app.",
+    },
+    cep: {
+      titulo: "Editar CEP",
+      subtitulo: "Usamos o CEP para a sua localização.",
+    },
+    senha: {
+      titulo: "Alterar senha",
+      subtitulo: "Confirme a senha atual e escolha uma nova.",
+    },
+  };
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.profileContent}>
+        <Text style={styles.pageTitle}>Meu Perfil</Text>
+
+        <Text style={styles.pageSubtitle}>
+          Informações e preferências da sua conta
+        </Text>
+
+        {/* FOTO */}
+
+        <View style={styles.profileHeader}>
+          <TouchableOpacity
+            style={styles.profilePhotoContainer}
+            onPress={escolherFoto}
+            disabled={enviandoFoto}
+            activeOpacity={0.8}
+          >
+            <Image
+              source={{
+                uri: foto,
+              }}
+              style={styles.profilePhoto}
+            />
+
+            <View style={styles.profilePhotoEditBadge}>
+              {enviandoFoto ? (
+                <ActivityIndicator color="#111111" size="small" />
+              ) : (
+                <Text style={styles.profilePhotoEditIcon}>✎</Text>
+              )}
+            </View>
+          </TouchableOpacity>
+
+          <Text style={styles.profileChangePhotoText}>
+            Toque para alterar a foto
+          </Text>
+
+          <View style={styles.profileNameRow}>
+            <Text style={styles.profileName} numberOfLines={1}>
+              {user.nome || "Cliente"}
+            </Text>
+
+            {pontos !== null ? (
+              <View style={styles.profileBadge}>
+                <Text style={styles.profileBadgeText}>★ {pontos} pts</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <Text style={styles.profileEmail}>
+            {user.email || "Não informado"}
+          </Text>
+        </View>
+
+        {/* INFORMAÇÕES */}
+
+        <Text style={styles.profileSectionTitle}>INFORMAÇÕES DA CONTA</Text>
+
+        <View style={styles.profileInfoCard}>
+          <PerfilLinha
+            imagem={require("./assets/icon-usuario.png")}
+            rotulo="Nome completo"
+            valor={user.nome || "Não informado"}
+            botao={botaoEditar}
+            onPress={() => abrirEdicao("nome")}
+          />
+
+          <View style={styles.profileDivider} />
+
+          <PerfilLinha
+            imagem={require("./assets/icon-email.png")}
+            rotulo="E-mail"
+            tag="ATIVO"
+            valor={user.email || "Não informado"}
+          />
+
+          <View style={styles.profileDivider} />
+
+          <PerfilLinha
+            imagem={require("./assets/icon-cep.png")}
+            rotulo="CEP & Localização"
+            valor={cepFormatado || "Não informado"}
+            valorExtra={localizacao ? `  •  ${localizacao}` : ""}
+            botao={botaoEditar}
+            onPress={() => abrirEdicao("cep")}
+          />
+
+          <View style={styles.profileDivider} />
+
+          <PerfilLinha
+            imagem={require("./assets/icon-senha.png")}
+            rotulo="Senha"
+            valor="••••••••"
+            botao={botaoAlterar}
+            onPress={() => abrirEdicao("senha")}
+          />
+        </View>
+
+        {/* SAIR */}
+
+        <TouchableOpacity style={styles.profileLogoutButton} onPress={sair}>
+          <Image
+            source={require("./assets/botao-sair.png")}
+            style={styles.profileLogoutImage}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* AVISO DE SUCESSO */}
+
+      {aviso ? (
+        <View style={styles.profileToast} pointerEvents="none">
+          <Text style={styles.profileToastText}>✓ {aviso}</Text>
+        </View>
+      ) : null}
+
+      <BottomNav navigation={navigation} active="Perfil" user={user} />
+
+      {/* EDIÇÃO (NOME / CEP / SENHA) */}
+
+      <Modal
+        visible={modalAberto}
+        transparent
+        animationType="slide"
+        onRequestClose={fecharEdicao}
+      >
+        <KeyboardAvoidingView
+          style={styles.profileModalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <TouchableOpacity
+            style={styles.profileModalBackdrop}
+            activeOpacity={1}
+            onPress={fecharEdicao}
+          />
+
+          <View style={styles.profileModalSheet}>
+            <View style={styles.profileModalHandle} />
+
+            <Text style={styles.profileModalTitle}>
+              {titulosModal[editando].titulo}
+            </Text>
+
+            <Text style={styles.profileModalSubtitle}>
+              {titulosModal[editando].subtitulo}
+            </Text>
+
+            <ScrollView
+              style={styles.profileModalScroll}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {editando === "nome" ? (
+                <>
+                  <Text style={styles.profileModalLabel}>Nome completo</Text>
+
+                  <TextInput
+                    style={styles.profileModalInput}
+                    value={campoNome}
+                    onChangeText={setCampoNome}
+                    placeholder="Seu nome completo"
+                    placeholderTextColor={COLORS.gray2}
+                    autoCapitalize="words"
+                    autoFocus
+                    maxLength={100}
+                  />
+                </>
+              ) : null}
+
+              {editando === "cep" ? (
+                <>
+                  <Text style={styles.profileModalLabel}>CEP</Text>
+
+                  <TextInput
+                    style={styles.profileModalInput}
+                    value={campoCep}
+                    onChangeText={(t) => setCampoCep(formatarCep(t))}
+                    placeholder="00000-000"
+                    placeholderTextColor={COLORS.gray2}
+                    keyboardType="number-pad"
+                    maxLength={9}
+                    autoFocus
+                  />
+                </>
+              ) : null}
+
+              {editando === "senha" ? (
+                <>
+                  <Text style={styles.profileModalLabel}>Senha atual</Text>
+
+                  <TextInput
+                    style={styles.profileModalInput}
+                    value={senhaAtual}
+                    onChangeText={setSenhaAtual}
+                    placeholder="Digite sua senha atual"
+                    placeholderTextColor={COLORS.gray2}
+                    secureTextEntry={!verSenhas}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoFocus
+                  />
+
+                  <Text style={styles.profileModalLabel}>Nova senha</Text>
+
+                  <TextInput
+                    style={styles.profileModalInput}
+                    value={novaSenha}
+                    onChangeText={setNovaSenha}
+                    placeholder="Mínimo de 6 caracteres"
+                    placeholderTextColor={COLORS.gray2}
+                    secureTextEntry={!verSenhas}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+
+                  <Text style={styles.profileModalLabel}>
+                    Confirmar nova senha
+                  </Text>
+
+                  <TextInput
+                    style={styles.profileModalInput}
+                    value={confirmaSenha}
+                    onChangeText={setConfirmaSenha}
+                    placeholder="Repita a nova senha"
+                    placeholderTextColor={COLORS.gray2}
+                    secureTextEntry={!verSenhas}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+
+                  <TouchableOpacity
+                    onPress={() => setVerSenhas(!verSenhas)}
+                    style={styles.profileShowPass}
+                  >
+                    <Text style={styles.profileShowPassText}>
+                      {verSenhas ? "Ocultar senhas" : "Mostrar senhas"}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : null}
+
+              {erroModal ? (
+                <Text style={styles.profileModalError}>{erroModal}</Text>
+              ) : null}
+            </ScrollView>
+
+            <View style={styles.profileModalButtons}>
+              <TouchableOpacity
+                style={styles.profileModalCancel}
+                onPress={fecharEdicao}
+                disabled={salvando}
+              >
+                <Text style={styles.profileModalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.profileModalSave}
+                onPress={confirmarEdicao}
+                disabled={salvando}
+              >
+                {salvando ? (
+                  <ActivityIndicator color="#111111" />
+                ) : (
+                  <Text style={styles.profileModalSaveText}>Salvar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+// ======================================================
+// NAVEGAÇÃO INFERIOR
+// ======================================================
+
+function BottomNav({ navigation, active, user }) {
+  const item = (name, icon, screen) => {
+    const selected = active === name;
+
+    return (
+      <TouchableOpacity
+        style={styles.navItem}
+        onPress={() => {
+          if (screen === "Home") {
+            navigation.navigate("Home", { user });
+          } else {
+            navigation.navigate(screen, { user });
+          }
+        }}
+      >
+        <Image
+          source={icon}
+          style={[
+            styles.navIconImage,
+            {
+              tintColor: selected ? COLORS.yellow : COLORS.gray,
+            },
+          ]}
+          resizeMode="contain"
+        />
+
+        <Text style={[styles.navText, selected && styles.navTextActive]}>
+          {name}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <View style={styles.bottomNav}>
+      {item("Home", require("./assets/nav-home.png"), "Home")}
+
+      {item("Agendar", require("./assets/nav-agendar.png"), "Agendamento")}
+
+      {item("Histórico", require("./assets/nav-historico.png"), "Historico")}
+
+      {item("Fidelidade", require("./assets/nav-fidelidade.png"), "Fidelidade")}
+
+      {item("Perfil", require("./assets/nav-perfil.png"), "Perfil")}
+    </View>
+  );
+}
+
+// ======================================================
+// APP
+// ======================================================
+
+export default function App() {
+  return (
+    <NavigationContainer
+      linking={{
+        prefixes: ["barbershop://"],
+        config: { screens: { ResetarSenha: "resetar-senha" } },
+      }}
+    >
+      <Stack.Navigator
+        initialRouteName="Login"
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: COLORS.bg,
+          },
+
+          headerTintColor: COLORS.white,
+
+          headerTitleStyle: {
+            fontWeight: "700",
+          },
+
+          contentStyle: {
+            backgroundColor: COLORS.bg,
+          },
+        }}
+      >
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="EsqueciSenha"
+          component={EsqueciSenhaScreen}
+          options={{ title: "Recuperar senha" }}
+        />
+
+        <Stack.Screen
+          name="ResetarSenha"
+          component={ResetarSenhaScreen}
+          options={{ title: "Nova senha" }}
+        />
+
+        <Stack.Screen
+          name="TermosUso"
+          component={LegalDocumentScreen}
+          options={{ title: "Termos de Uso" }}
+        />
+
+        <Stack.Screen
+          name="PoliticaPrivacidade"
+          component={LegalDocumentScreen}
+          options={{ title: "Privacidade" }}
+        />
+
+        <Stack.Screen
+          name="Cadastro"
+          component={CadastroScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="PrimeiroAcesso"
+          component={PrimeiroAcessoScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="Agendamento"
+          component={AgendamentoScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="Fidelidade"
+          component={FidelidadeScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="Historico"
+          component={HistoricoScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="Perfil"
+          component={PerfilScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="Modelos"
+          component={ModelosScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
+// ======================================================
+// ESTILOS
+// ======================================================
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+
+  // ----------------------------
+  // AUTH
+  // ----------------------------
+
+  loginContainer: {
+    flexGrow: 1,
+  justifyContent: "center",
+  paddingHorizontal: 24,
+  paddingTop: 36,
+  paddingBottom: 40,
+  backgroundColor: "#101010",
+  },
+  loginHeader: {
+    alignItems: "center",
+  marginBottom: 38,
+  },
+  loginLogoFrame: {
+    width: 66,
+    height: 66,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#6F5A25",
+    backgroundColor: "#191919",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  loginLogoImage: {
+    width: 135,
+    height: 105,
+    resizeMode: "contain",
+  },
+  loginBrand: {
+     marginTop: 12,
+  fontSize: 30,
+  fontWeight: "900",
+  letterSpacing: 4.5,
+  textAlign: "center",
+  },
+  loginBrandBarber: {
+    color: "#F5F5F5",
+  fontWeight: "900",
+  },
+  loginBrandShop: {
+    color: "#F5C542",
+  fontWeight: "900",
+  },
+  loginTagline: {
+    color: "#AFAFAF",
+  fontSize: 10,
+  letterSpacing: 2.4,
+  marginTop: 8,
+  textAlign: "center",
+  },
+  loginIntro: {
+    alignItems: "center",
+  marginBottom: 28,
+  },
+  loginTitle: {
+    color: "#F7F7F7",
+  fontSize: 31,
+  fontWeight: "800",
+  textAlign: "center",
+  },
+  loginSubtitle: {
+   color: "#A5A5A5",
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: "center",
+  },
+  loginForm: {
+    width: "100%",
+  },
+  loginLabel: {
+    color: "#D6D6D6",
+  fontSize: 13,
+  fontWeight: "700",
+  letterSpacing: 1,
+  marginTop: 19,
+  marginBottom: 9,
+  },
+  loginInput: {
+    height: 58,
+  backgroundColor: "#19191B",
+  borderWidth: 1,
+  borderColor: "#303034",
+  borderRadius: 14,
+  paddingHorizontal: 16,
+  color: "#FFFFFF",
+  fontSize: 16,
+  },
+  loginForgotButton: {
+    alignSelf: "flex-end",
+    marginTop: 12,
+    paddingVertical: 3,
+  },
+  loginForgotText: {
+    color: "#F5C542",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  loginPrimaryButton: {
+    height: 49,
+    backgroundColor: "#F5C542",
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+  },
+  loginButtonDisabled: {
+    opacity: 0.7,
+  },
+  loginPrimaryButtonText: {
+    color: "#111111",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+  },
+  loginOrContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 22,
+  },
+  loginOrLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#2A2A2A",
+  },
+  loginOrText: {
+    color: "#777777",
+    fontSize: 11,
+    marginHorizontal: 14,
+  },
+  loginBottomLink: {
+    textAlign: "center",
+    color: "#A5A5A5",
+    fontSize: 13,
+  },
+  loginBottomLinkAccent: {
+    color: "#F5C542",
+    fontWeight: "800",
+  },
+
+  authContainer: {
+    flexGrow: 1,
+    padding: 28,
+    justifyContent: "center",
+  },
+
+  authHeader: {
+    alignItems: "center",
+    marginBottom: 30,
+  },
+
+  logoImage: {
+    width: 90,
+    height: 60,
+  },
+
+  logoIcon: {
+    fontSize: 42,
+    color: "#111111",
+    fontWeight: "bold",
+  },
+
+  brand: {
+    fontFamily: "sans-serif-condensed",
+    fontSize: 32,
+    fontWeight: "900",
+    marginTop: 14,
+    letterSpacing: 0.4,
+  },
+  brandBarber: {
+    color: "#F5F5F5",
+    fontFamily: "sans-serif-condensed",
+    fontWeight: "900",
+  },
+  brandShop: {
+    color: "#D4AF37",
+    fontFamily: "sans-serif-condensed",
+    fontWeight: "900",
+    fontStyle: "italic",
+    letterSpacing: 0.8,
+    textShadowColor: "rgba(212, 175, 55, 0.35)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+
+  authTitle: {
+    color: COLORS.white,
+    fontSize: 32,
+    fontWeight: "800",
+    marginTop: 30,
+  },
+
+  authSubtitle: {
+    color: COLORS.gray,
+    fontSize: 16,
+    marginTop: 8,
+    marginBottom: 24,
+  },
+
+  form: {
+    width: "100%",
+  },
+
+  label: {
+    color: COLORS.gray,
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 1.1,
+    marginTop: 18,
+    marginBottom: 9,
+  },
+
+  input: {
+    height: 60,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    color: COLORS.white,
+    fontSize: 16,
+  },
+
+  primaryButton: {
+    height: 62,
+    backgroundColor: COLORS.yellow,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 26,
+  },
+
+  primaryButtonText: {
+    color: "#111111",
+    fontSize: 17,
+    fontWeight: "800",
+  },
+
+  forgotButton: {
+    alignItems: "flex-end",
+    marginTop: 12,
+  },
+
+  yellowText: {
+    color: COLORS.yellow,
+    fontWeight: "700",
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 5,
+  },
+
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 24,
+  },
+
+  checkBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: COLORS.yellow,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+
+  checkBoxUnchecked: {
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: COLORS.gray,
+  },
+
+  checkText: {
+    color: "#111111",
+    fontWeight: "900",
+  },
+
+  termsText: {
+    flex: 1,
+    color: COLORS.gray,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+
+  legalContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 40,
+  },
+
+  legalNotice: {
+    color: COLORS.gray,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 18,
+    marginBottom: 8,
+    padding: 12,
+    backgroundColor: COLORS.card,
+    borderRadius: 10,
+  },
+
+  legalSection: {
+    marginTop: 20,
+  },
+
+  legalHeading: {
+    color: COLORS.yellow,
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+
+  legalBody: {
+    color: COLORS.text,
+    fontSize: 14,
+    lineHeight: 22,
+  },
+
+  orContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 26,
+  },
+
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+
+  orText: {
+    color: COLORS.gray,
+    marginHorizontal: 14,
+  },
+
+  bottomLink: {
+    textAlign: "center",
+    color: COLORS.gray,
+    fontSize: 15,
+  },
+
+  // ----------------------------
+  // HOME
+  // ----------------------------
+
+  homeContent: {
+    padding: 22,
+    paddingBottom: 120,
+  },
+
+  homeHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+
+  welcome: {
+    color: COLORS.gray,
+    fontSize: 11,
+    letterSpacing: 2,
+    fontWeight: "600",
+  },
+
+  homeName: {
+    color: COLORS.white,
+    fontSize: 30,
+    fontWeight: "800",
+    marginTop: 5,
+  },
+
+  notificationButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  notificationIcon: {
+    color: COLORS.white,
+    fontSize: 24,
+  },
+
+  homeAppointment: {
+    backgroundColor: COLORS.blueCard,
+    borderRadius: 28,
+    padding: 24,
+    overflow: "hidden",
+    marginBottom: 10,
+  },
+
+  appointmentAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 6,
+    backgroundColor: COLORS.yellow,
+  },
+
+  appointmentLabel: {
+    color: COLORS.yellow,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 1.8,
+  },
+
+  appointmentBarber: {
+    color: COLORS.white,
+    fontSize: 24,
+    fontWeight: "800",
+    marginTop: 18,
+  },
+
+  appointmentService: {
+    color: "#C9D5EA",
+    fontSize: 17,
+    marginTop: 4,
+  },
+
+  appointmentInfoRow: {
+    flexDirection: "row",
+    gap: 20,
+    marginTop: 20,
+  },
+
+  appointmentInfo: {
+    color: "#D5DDEC",
+    fontSize: 13,
+  },
+
+  appointmentPrice: {
+    color: COLORS.yellow,
+    fontSize: 25,
+    fontWeight: "800",
+    marginTop: 16,
+  },
+
+  smallYellowButton: {
+    alignSelf: "flex-start",
+    backgroundColor: COLORS.yellow,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 13,
+    marginTop: 16,
+  },
+
+  smallButtonText: {
+    color: "#111111",
+    fontWeight: "800",
+    fontSize: 14,
+  },
+
+  emptyAppointment: {
+    alignItems: "flex-start",
+  },
+
+  emptyText: {
+    color: COLORS.gray,
+    marginTop: 15,
+  },
+
+  sectionTitle: {
+    color: COLORS.white,
+    fontSize: 19,
+    fontWeight: "800",
+    marginTop: 28,
+    marginBottom: 15,
+  },
+
+  actionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+
+  actionCard: {
+    width: "48%",
+    minHeight: 150,
+    backgroundColor: COLORS.card,
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
+  actionCardActive: {
+    backgroundColor: "#07366D",
+    borderColor: "#07366D",
+  },
+
+  actionIcon: {
+    color: COLORS.yellow,
+    fontSize: 28,
+    marginBottom: 18,
+  },
+
+  actionTitle: {
+    color: COLORS.white,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+
+  actionSubtitle: {
+    color: COLORS.gray,
+    fontSize: 13,
+    marginTop: 6,
+  },
+
+  fidelityMiniCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.card,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 18,
+  },
+
+  fidelityIconImage: {
+    width: 62,
+    height: 62,
+  },
+
+  fidelityIconCircle: {
+    width: 62,
+    height: 62,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
+  },
+
+  fidelityIcon: {
+    color: "#111111",
+    fontSize: 30,
+  },
+
+  pointsRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+
+  pointsValue: {
+    color: COLORS.white,
+    fontSize: 26,
+    fontWeight: "800",
+  },
+
+  pointsUnit: {
+    color: COLORS.yellow,
+    fontSize: 15,
+    fontWeight: "700",
+    marginLeft: 5,
+  },
+
+  pointsGoal: {
+    color: COLORS.gray,
+    fontSize: 12,
+    marginLeft: "auto",
+  },
+
+  progressBackground: {
+    height: 8,
+    backgroundColor: "#353535",
+    borderRadius: 4,
+    overflow: "hidden",
+    marginTop: 9,
+  },
+
+  progressBar: {
+    height: 8,
+    backgroundColor: COLORS.yellow,
+    borderRadius: 4,
+  },
+
+  pointsDescription: {
+    color: COLORS.gray,
+    fontSize: 12,
+    marginTop: 7,
+  },
+
+  inspirationCard: {
+    height: 180,
+    borderRadius: 25,
+    backgroundColor: "#272727",
+    padding: 22,
+    justifyContent: "flex-end",
+    overflow: "hidden",
+  },
+
+  inspirationCardImage: {
+    borderRadius: 25,
+    opacity: 0.9,
+  },
+
+  inspirationTitle: {
+    color: COLORS.white,
+    fontSize: 22,
+    fontWeight: "800",
+  },
+
+  inspirationSubtitle: {
+    color: COLORS.gray,
+    fontSize: 14,
+    marginTop: 5,
+  },
+
+  inspirationButton: {
+    position: "absolute",
+    right: 18,
+    bottom: 20,
+    backgroundColor: COLORS.yellow,
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+  },
+
+  barbersRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  barberCardFixed: {
+    flex: 0,
+    width: 110,
+  },
+
+  barberCard: {
+    flex: 1,
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    padding: 15,
+  },
+
+  barberAvatar: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: COLORS.yellow,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  barberAvatarText: {
+    color: "#111111",
+    fontSize: 23,
+    fontWeight: "800",
+  },
+
+  barberName: {
+    color: COLORS.white,
+    fontWeight: "800",
+    marginTop: 10,
+  },
+
+  barberHours: {
+    color: COLORS.yellow,
+    fontSize: 11,
+    marginTop: 5,
+  },
+
+  // ----------------------------
+  // AGENDAMENTO
+  // ----------------------------
+
+  bookingContent: {
+    padding: 22,
+    paddingBottom: 120,
+  },
+
+  pageTitle: {
+    color: COLORS.white,
+    fontSize: 30,
+    fontWeight: "800",
+  },
+
+  pageSubtitle: {
+    color: COLORS.gray,
+    fontSize: 14,
+    marginTop: 5,
+  },
+
+  stepsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 25,
+    marginBottom: 15,
+  },
+
+  stepActive: {
+    alignItems: "center",
+  },
+
+  step: {
+    alignItems: "center",
+  },
+
+  stepNumber: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.yellow,
+    color: "#111111",
+    textAlign: "center",
+    textAlignVertical: "center",
+    paddingTop: 8,
+    fontWeight: "800",
+  },
+
+  stepNumberInactive: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.card2,
+    color: COLORS.gray,
+    textAlign: "center",
+    textAlignVertical: "center",
+    paddingTop: 8,
+    fontWeight: "800",
+  },
+
+  stepTextActive: {
+    color: COLORS.yellow,
+    fontSize: 11,
+    marginTop: 5,
+  },
+
+  stepText: {
+    color: COLORS.gray,
+    fontSize: 11,
+    marginTop: 5,
+  },
+
+  stepLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: COLORS.border,
+    marginHorizontal: 7,
+    marginBottom: 17,
+  },
+
+  multiSelectHint: {
+    color: COLORS.gray,
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+
+  serviceCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 15,
+    marginBottom: 10,
+  },
+
+  serviceCardSelected: {
+    borderColor: COLORS.yellow,
+    backgroundColor: "#2A2712",
+  },
+
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: COLORS.gray2,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+
+  checkboxSelected: {
+    backgroundColor: COLORS.yellow,
+    borderColor: COLORS.yellow,
+  },
+
+  checkboxCheck: {
+    color: "#111111",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  serviceIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 17,
+    backgroundColor: "#303030",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+
+  serviceImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  serviceIconText: {
+    color: COLORS.yellow,
+    fontSize: 28,
+  },
+
+  serviceInfo: {
+    flex: 1,
+    marginLeft: 14,
+  },
+
+  serviceName: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+
+  serviceDescription: {
+    color: COLORS.gray,
+    fontSize: 12,
+    marginTop: 5,
+  },
+
+  serviceRight: {
+    alignItems: "flex-end",
+  },
+
+  servicePrice: {
+    color: COLORS.yellow,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+
+  selectedCheck: {
+    color: COLORS.yellow,
+    fontSize: 20,
+    marginTop: 5,
+  },
+
+  dateRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  dateCard: {
+    width: 78,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 18,
+    paddingVertical: 15,
+    alignItems: "center",
+  },
+
+  dateCardSelected: {
+    backgroundColor: COLORS.yellow,
+    borderColor: COLORS.yellow,
+  },
+
+  dateWeek: {
+    color: COLORS.gray,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
+  dateWeekSelected: {
+    color: "#111111",
+  },
+
+  dateNumber: {
+    color: COLORS.white,
+    fontSize: 20,
+    fontWeight: "800",
+    marginTop: 5,
+  },
+
+  dateNumberSelected: {
+    color: "#111111",
+  },
+
+  hoursGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+
+  hourCard: {
+    width: "31%",
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 15,
+    paddingVertical: 15,
+    alignItems: "center",
+  },
+
+  hourCardSelected: {
+    backgroundColor: COLORS.yellow,
+    borderColor: COLORS.yellow,
+  },
+
+  hourText: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  hourTextSelected: {
+    color: "#111111",
+  },
+
+  barbersBookingRow: {
+    flexDirection: "row",
+    gap: 12,
+    paddingVertical: 4,
+    paddingRight: 4,
+  },
+
+  bookingBarberCard: {
+    width: 108,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    position: "relative",
+  },
+
+  bookingBarberSelected: {
+    borderColor: COLORS.yellow,
+    backgroundColor: "#2A2712",
+  },
+
+  bookingAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.card2,
+    borderWidth: 2,
+    borderColor: COLORS.yellow,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  bookingAvatarSelected: {
+    backgroundColor: COLORS.yellow,
+  },
+
+  bookingAvatarTextSelected: {
+    color: "#111111",
+  },
+
+  bookingAvatarText: {
+    color: COLORS.yellow,
+    fontSize: 21,
+    fontWeight: "800",
+  },
+
+  bookingBarberName: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 10,
+    textAlign: "center",
+    width: "100%",
+  },
+
+  bookingBarberFunction: {
+    color: COLORS.gray,
+    fontSize: 10,
+    marginTop: 3,
+    textAlign: "center",
+    width: "100%",
+  },
+
+  bookingBarberCheck: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: COLORS.yellow,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  bookingBarberCheckText: {
+    color: "#111111",
+    fontSize: 10,
+    fontWeight: "800",
+  },
+
+  bookingSummary: {
+    backgroundColor: COLORS.blueCard,
+    borderRadius: 22,
+    padding: 18,
+    marginTop: 25,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  summaryTextBox: {
+    flex: 1,
+    marginRight: 12,
+  },
+
+  summarySmall: {
+    color: "#B8C8E4",
+    fontSize: 12,
+  },
+
+  summaryMain: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: "800",
+    marginVertical: 4,
+  },
+
+  summaryPrice: {
+    color: COLORS.yellow,
+    fontSize: 22,
+    fontWeight: "800",
+  },
+
+  // ----------------------------
+  // FIDELIDADE
+  // ----------------------------
+
+  fidelityContent: {
+    padding: 22,
+    paddingBottom: 110,
+  },
+
+  pointsCard: {
+    backgroundColor: COLORS.blueCard,
+    borderRadius: 27,
+    padding: 22,
+    marginTop: 22,
+  },
+
+  pointsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
+  pointsLabel: {
+    color: "#B8C8E4",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+
+  bigPoints: {
+    color: COLORS.yellow,
+    fontSize: 48,
+    fontWeight: "800",
+    marginTop: 4,
+  },
+
+  pts: {
+    color: "#B8C8E4",
+    fontSize: 15,
+  },
+
+  medalCircle: {
+    width: 65,
+    height: 65,
+    borderRadius: 33,
+    backgroundColor: COLORS.yellow,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  medal: {
+    color: "#111111",
+    fontSize: 30,
+  },
+
+  medalImage: {
+    width: 72,
+    height: 72,
+  },
+
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 25,
+    marginBottom: 7,
+  },
+
+  grayText: {
+    color: COLORS.gray,
+    fontSize: 12,
+  },
+
+  whiteBold: {
+    color: COLORS.white,
+    fontWeight: "800",
+  },
+
+  rewardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 13,
+  },
+
+  rewardCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: COLORS.card2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  rewardDone: {
+    backgroundColor: COLORS.yellow,
+    borderColor: COLORS.yellow,
+  },
+
+  rewardAvailable: {
+    borderColor: COLORS.yellow,
+  },
+
+  rewardIcon: {
+    fontSize: 16,
+  },
+
+  rewardImageWrap: {
+    width: 48,
+    height: 48,
+  },
+
+  rewardImageBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: COLORS.card2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: "hidden",
+  },
+
+  rewardImageAvailable: {
+    borderColor: COLORS.yellow,
+  },
+
+  rewardImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  rewardBadge: {
+    position: "absolute",
+    right: -5,
+    bottom: -5,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.card2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  rewardBadgeIcon: {
+    fontSize: 10,
+  },
+
+  rewardInfo: {
+    flex: 1,
+    marginLeft: 13,
+  },
+
+  rewardName: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  rewardDoneText: {
+    color: COLORS.gray,
+  },
+
+  rewardPoints: {
+    color: COLORS.gray,
+    fontSize: 12,
+    marginTop: 3,
+  },
+
+  doneTag: {
+    backgroundColor: "#1C3A2D",
+    borderRadius: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+
+  doneTagText: {
+    color: COLORS.green,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
+  redeemButton: {
+    backgroundColor: COLORS.yellow,
+    borderRadius: 15,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+  },
+
+  redeemText: {
+    color: "#111111",
+    fontWeight: "800",
+    fontSize: 11,
+  },
+
+  nextTag: {
+    borderWidth: 1,
+    borderColor: COLORS.yellow,
+    borderRadius: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+
+  nextTagText: {
+    color: COLORS.yellow,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
+  howToCard: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 22,
+    padding: 18,
+    marginTop: 18,
+  },
+
+  howToTitle: {
+    color: COLORS.white,
+    fontSize: 17,
+    fontWeight: "800",
+    marginBottom: 14,
+  },
+
+  howToRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 7,
+  },
+
+  smallIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: COLORS.card2,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+
+  smallIconImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  smallIcon: {
+    color: COLORS.yellow,
+    fontSize: 19,
+  },
+
+  howToName: {
+    flex: 1,
+    color: COLORS.white,
+    marginLeft: 12,
+    fontSize: 14,
+  },
+
+  howToPoints: {
+    color: COLORS.yellow,
+    fontWeight: "800",
+  },
+
+  pointHistory: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 17,
+    padding: 13,
+    marginBottom: 9,
+  },
+
+  historyName: {
+    color: COLORS.white,
+    fontWeight: "700",
+  },
+
+  historyDate: {
+    color: COLORS.gray,
+    fontSize: 11,
+    marginTop: 3,
+  },
+
+  historyPoints: {
+    fontWeight: "800",
+  },
+
+  // ----------------------------
+  // HISTÓRICO
+  // ----------------------------
+
+  historyContent: {
+    padding: 22,
+    paddingBottom: 110,
+  },
+
+  statsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 22,
+  },
+
+  statCard: {
+    flex: 1,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 18,
+    padding: 14,
+    alignItems: "center",
+  },
+
+  statIcon: {
+    color: COLORS.yellow,
+    fontSize: 21,
+  },
+
+  statNumber: {
+    color: COLORS.white,
+    fontSize: 23,
+    fontWeight: "800",
+    marginTop: 5,
+  },
+
+  statNumberSmall: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: "800",
+    marginTop: 9,
+  },
+
+  statLabel: {
+    color: COLORS.gray,
+    fontSize: 11,
+    marginTop: 4,
+  },
+
+  historyCard: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 23,
+    padding: 18,
+    marginBottom: 12,
+  },
+
+  historyTop: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  historyServiceIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
+    backgroundColor: COLORS.card2,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    overflow: "hidden",
+  },
+
+  historyServiceImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  historyServiceIconText: {
+    color: COLORS.yellow,
+    fontSize: 23,
+  },
+
+  historyService: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+
+  historyBarber: {
+    color: COLORS.gray,
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  historyPrice: {
+    color: COLORS.yellow,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+
+  historyDetails: {
+    flexDirection: "row",
+    gap: 22,
+    marginTop: 16,
+  },
+
+  historyDetail: {
+    color: COLORS.gray,
+    fontSize: 12,
+  },
+
+  historyBottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 16,
+  },
+
+  statusText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  outlineButton: {
+    borderWidth: 1,
+    borderColor: COLORS.yellow,
+    borderRadius: 13,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+
+  outlineText: {
+    color: COLORS.yellow,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+
+  historyActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  cancelButton: {
+    borderWidth: 1,
+    borderColor: COLORS.red,
+    borderRadius: 13,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+
+  cancelButtonText: {
+    color: COLORS.red,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+
+  emptyHistory: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 22,
+    padding: 35,
+    alignItems: "center",
+    marginTop: 20,
+  },
+
+  emptyHistoryIcon: {
+    color: COLORS.yellow,
+    fontSize: 40,
+  },
+
+  emptyHistoryTitle: {
+    color: COLORS.white,
+    fontSize: 18,
+    fontWeight: "800",
+    marginTop: 10,
+  },
+
+  emptyHistoryText: {
+    color: COLORS.gray,
+    marginTop: 5,
+  },
+
+  // ----------------------------
+  // NAV
+  // ----------------------------
+
+  bottomNav: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 82,
+    backgroundColor: "#181818",
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingBottom: 5,
+  },
+
+  navItem: {
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 60,
+  },
+
+  navIcon: {
+    color: COLORS.gray,
+    fontSize: 25,
+  },
+
+  navIconActive: {
+    color: COLORS.yellow,
+  },
+
+  navIconImage: {
+    width: 24,
+    height: 24,
+    marginBottom: 2,
+  },
+
+  navText: {
+    color: COLORS.gray,
+    fontSize: 10,
+    marginTop: 4,
+  },
+
+  navTextActive: {
+    color: COLORS.yellow,
+    fontWeight: "800",
+  },
+
+  // ----------------------------
+  // LOADING
+  // ----------------------------
+
+  centerLoading: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  // ----------------------------
+  // PERFIL
+  // ----------------------------
+
+  profileContent: {
+    padding: 22,
+    paddingBottom: 120,
+  },
+
+  profileHeader: {
+    alignItems: "center",
+    marginTop: 25,
+    marginBottom: 30,
+  },
+
+  profilePhotoContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: COLORS.yellow,
+    padding: 3,
+    marginBottom: 15,
+    backgroundColor: COLORS.bg,
+    shadowColor: COLORS.yellow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    elevation: 14,
+  },
+
+  profilePhoto: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 60,
+  },
+
+  profilePhotoEditBadge: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.yellow,
+    borderWidth: 3,
+    borderColor: COLORS.bg,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  profilePhotoEditIcon: {
+    color: "#111111",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+
+  profileChangePhotoText: {
+    color: COLORS.gray,
+    fontSize: 12,
+    marginBottom: 8,
+  },
+
+  profileName: {
+    color: COLORS.white,
+    fontSize: 22,
+    fontWeight: "800",
+    flexShrink: 1,
+  },
+
+  profileEmail: {
+    color: COLORS.gray,
+    fontSize: 14,
+    marginTop: 5,
+  },
+
+  profileSectionTitle: {
+    color: COLORS.yellow,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    marginBottom: 12,
+  },
+
+  profileInfoCard: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 22,
+    padding: 18,
+  },
+
+  profileInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+
+  profileInfoIcon: {
+    width: 45,
+    height: 45,
+    borderRadius: 14,
+    backgroundColor: COLORS.card2,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+
+  profileInfoIconText: {
+    color: COLORS.yellow,
+    fontSize: 20,
+  },
+
+  profileInfoIconImage: {
+    width: 45,
+    height: 45,
+    borderRadius: 14,
+  },
+
+  profileInfoText: {
+    flex: 1,
+  },
+
+  profileInfoLabel: {
+    color: COLORS.gray,
+    fontSize: 11,
+    marginBottom: 4,
+  },
+
+  profileInfoValue: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  profileDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 10,
+  },
+
+  profileLogoutButton: {
+    height: 58,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.red,
+    marginTop: 25,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  profileLogoutIcon: {
+    color: COLORS.red,
+    fontSize: 22,
+    marginRight: 10,
+  },
+
+  profileLogoutImage: {
+    height: 32,
+    width: 101,
+  },
+
+  profileLogoutText: {
+    color: COLORS.red,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+
+  profileNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    maxWidth: "100%",
+  },
+
+  profileBadge: {
+    marginLeft: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: "rgba(245, 197, 66, 0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 197, 66, 0.55)",
+  },
+
+  profileBadgeText: {
+    color: COLORS.yellow,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+
+  profileLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+
+  profileInfoLabelInline: {
+    color: COLORS.gray,
+    fontSize: 11,
+  },
+
+  profileInfoValueMuted: {
+    color: COLORS.gray,
+    fontSize: 12,
+    fontWeight: "500",
+  },
+
+  profileTag: {
+    marginLeft: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: "rgba(53, 201, 130, 0.16)",
+  },
+
+  profileTagText: {
+    color: COLORS.green,
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+  },
+
+  profileEditButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.card2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 10,
+  },
+
+  profileEditIcon: {
+    color: COLORS.gray,
+    fontSize: 15,
+  },
+
+  profileChangeButton: {
+    marginLeft: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "rgba(245, 197, 66, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 197, 66, 0.5)",
+  },
+
+  profileChangeButtonText: {
+    color: COLORS.yellow,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+
+  profileToast: {
+    position: "absolute",
+    left: 22,
+    right: 22,
+    bottom: 96,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    backgroundColor: "#12291f",
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    alignItems: "center",
+  },
+
+  profileToastText: {
+    color: COLORS.green,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  profileModalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+  },
+
+  profileModalBackdrop: {
+    flex: 1,
+  },
+
+  profileModalSheet: {
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: COLORS.border,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: 26,
+    maxHeight: "90%",
+  },
+
+  profileModalHandle: {
+    alignSelf: "center",
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: COLORS.border,
+    marginBottom: 18,
+  },
+
+  profileModalTitle: {
+    color: COLORS.white,
+    fontSize: 22,
+    fontWeight: "800",
+  },
+
+  profileModalSubtitle: {
+    color: COLORS.gray,
+    fontSize: 13,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+
+  profileModalScroll: {
+    flexGrow: 0,
+  },
+
+  profileModalLabel: {
+    color: COLORS.gray,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+
+  profileModalInput: {
+    height: 54,
+    backgroundColor: COLORS.card2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    color: COLORS.white,
+    fontSize: 16,
+  },
+
+  profileShowPass: {
+    alignSelf: "flex-start",
+    paddingVertical: 12,
+  },
+
+  profileShowPassText: {
+    color: COLORS.yellow,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  profileModalError: {
+    color: COLORS.red,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 14,
+  },
+
+  profileModalButtons: {
+    flexDirection: "row",
+    marginTop: 22,
+  },
+
+  profileModalCancel: {
+    flex: 1,
+    height: 54,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+
+  profileModalCancelText: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  profileModalSave: {
+    flex: 1.4,
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: COLORS.yellow,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  profileModalSaveText: {
+    color: "#111111",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+
+  logoutButton: {
+    width: 56,
+    height: 56,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  logoutIconImage: {
+    width: 46,
+    height: 46,
+  },
+
+  logoutIcon: {
+    color: COLORS.red,
+    fontSize: 25,
+    fontWeight: "800",
+  },
+
+  // ----------------------------
+  // MODELOS (INSPIRE-SE)
+  // ----------------------------
+
+  modelosContent: {
+    padding: 22,
+    paddingBottom: 120,
+  },
+
+  modelosHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+
+  backIcon: {
+    color: COLORS.white,
+    fontSize: 24,
+    fontWeight: "800",
+    marginTop: -2,
+  },
+
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 20,
+  },
+
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 14,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
+  filterChipActive: {
+    backgroundColor: COLORS.yellow,
+    borderColor: COLORS.yellow,
+  },
+
+  filterChipText: {
+    color: COLORS.gray,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  filterChipTextActive: {
+    color: "#111111",
+  },
+
+  modelosGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+
+  modelCard: {
+    width: "48%",
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 20,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+
+  modelImage: {
+    width: "100%",
+    height: 200,
+    backgroundColor: COLORS.card2,
+  },
+
+  modelImagePlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  modelImagePlaceholderText: {
+    fontSize: 34,
+    color: "#555",
+  },
+
+  modelInfo: {
+    padding: 12,
+  },
+
+  modelCategoryTag: {
+    color: COLORS.yellow,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+
+  modelName: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: "800",
+    marginTop: 5,
+  },
+
+  modelDescricao: {
+    color: COLORS.gray,
+    fontSize: 11,
+    marginTop: 4,
+    lineHeight: 15,
+  },
+
+  modelBookButton: {
+    backgroundColor: COLORS.yellow,
+    borderRadius: 12,
+    paddingVertical: 8,
+    alignItems: "center",
+    marginTop: 10,
+  },
+
+  modelBookButtonText: {
+    color: "#111111",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+});
