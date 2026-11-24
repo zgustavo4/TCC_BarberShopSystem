@@ -2440,13 +2440,20 @@
             if (!id && new Date(dados.data) < new Date()) {
                 toast('Não é possível agendar em uma data/horário que já passou', 'error'); return;
             }
+            // Guarda o status anterior (ao editar) para não creditar pontos duas vezes
+            let statusAnterior = null;
+            if (id) {
+                const atual = await apiGet(`/agendamentos/${id}`);
+                statusAnterior = atual && !atual.error ? atual.status : null;
+            }
+
             const result = id
                 ? await apiPut(`/agendamentos/${id}`, dados)
                 : await apiPost('/agendamentos', dados);
             if (result.error) { toast(result.error, 'error'); return; }
 
-            // Se status for 'concluido', credita pontos automaticamente na fidelidade
-            if (dados.status === 'concluido') {
+            // Credita pontos só se acabou de virar 'concluido' (não se já era concluído)
+            if (dados.status === 'concluido' && statusAnterior !== 'concluido') {
                 const idAg = id || result.insertId;
                 if (idAg) {
                     await apiPost('/fidelidade/creditar-agendamento', { id_agendamento: idAg });
@@ -2486,11 +2493,6 @@
             if (!novoStatus) return;
             const result = await apiPatch(`/agendamentos/${id}/status`, { status: novoStatus });
             if (result.error) { toast(result.error, 'error'); renderPage(); return; }
-
-            // Se o novo status for 'concluido', credita pontos automaticamente na fidelidade
-            if (novoStatus === 'concluido') {
-                await apiPost('/fidelidade/creditar-agendamento', { id_agendamento: id });
-            }
 
             toast(result.mensagem || 'Status atualizado!');
             renderPage();
